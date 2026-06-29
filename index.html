@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1e40af">
+<title>📂 Documentos · Claudia Adorno</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📂%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --primary: #1e40af;
+    --primary-dark: #1e3a8a;
+    --primary-bg: #eff6ff;
+    --green: #16a34a;
+    --green-bg: #dcfce7;
+    --amber: #d97706;
+    --amber-bg: #fef3c7;
+    --red: #dc2626;
+    --red-bg: #fee2e2;
+    --gray: #64748b;
+    --gray-light: #f1f5f9;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; background: #f8fafc; color: var(--text);
+  }
+  /* Login */
+  #login {
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  }
+  .login-card {
+    background: white; border-radius: 16px; padding: 32px 28px;
+    max-width: 400px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+  .login-card h1 { margin: 0 0 4px; font-size: 24px; color: var(--primary); text-align: center; }
+  .login-card .sub { text-align: center; color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .login-card label {
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    display: block; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .login-card input {
+    width: 100%; padding: 12px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 15px;
+  }
+  .login-card input:focus { outline: none; border-color: var(--primary); }
+  .login-card button {
+    width: 100%; margin-top: 18px; padding: 12px;
+    background: var(--primary); color: white; border: none;
+    border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .login-card button:hover { background: var(--primary-dark); }
+  .login-card button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #login-error { color: var(--red); font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+  /* App */
+  #app { display: none; }
+  header {
+    background: white; border-bottom: 1px solid var(--border);
+    padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  header h1 { margin: 0; font-size: 18px; color: var(--primary); }
+  header .spacer { flex: 1; }
+  header .user-info { font-size: 13px; color: var(--muted); }
+  header button.logout {
+    background: white; border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  header button.logout:hover { background: var(--gray-light); }
+
+  nav.tabs {
+    display: flex; gap: 4px; padding: 8px 20px;
+    background: white; border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  nav.tabs button {
+    background: transparent; border: none; padding: 10px 16px;
+    font-size: 14px; cursor: pointer; color: var(--muted);
+    border-radius: 8px 8px 0 0; white-space: nowrap;
+  }
+  nav.tabs button.active {
+    background: var(--primary-bg); color: var(--primary);
+    font-weight: 600;
+  }
+  nav.tabs button .count {
+    background: var(--gray-light); color: var(--muted);
+    padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px;
+  }
+  nav.tabs button.active .count { background: var(--primary); color: white; }
+
+  main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+  .filters {
+    background: white; border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 16px;
+    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  }
+  .filters label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .filters select, .filters input {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 6px 10px; font-size: 14px; background: white;
+  }
+  .filters .stat {
+    margin-left: auto; font-size: 13px; color: var(--muted);
+  }
+  .filters .stat strong { color: var(--text); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  table {
+    width: 100%; border-collapse: collapse; background: white;
+    border-radius: 10px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  th, td {
+    padding: 10px 14px; text-align: left; font-size: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    background: var(--gray-light); font-size: 12px;
+    font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    position: sticky; top: 0;
+  }
+  tbody tr { transition: background 0.1s; }
+  tbody tr.clickable { cursor: pointer; }
+  tbody tr.clickable:hover { background: var(--primary-bg); }
+  tbody tr.dim { color: var(--muted); }
+
+  .chip {
+    display: inline-block; padding: 3px 10px; border-radius: 12px;
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .chip.green { background: var(--green-bg); color: var(--green); }
+  .chip.amber { background: var(--amber-bg); color: var(--amber); }
+  .chip.red   { background: var(--red-bg);   color: var(--red); }
+  .chip.gray  { background: var(--gray-light); color: var(--muted); }
+
+  .empty {
+    padding: 50px 20px; text-align: center; color: var(--muted);
+    background: white; border-radius: 10px;
+  }
+  .empty .emoji { font-size: 48px; opacity: 0.5; margin-bottom: 12px; }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--text); color: white;
+    padding: 12px 20px; border-radius: 8px; font-size: 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 1000;
+  }
+  .toast.error { background: var(--red); }
+  .toast.success { background: var(--green); }
+
+  @media (max-width: 600px) {
+    main { padding: 10px; }
+    th, td { padding: 8px 10px; font-size: 13px; }
+    header h1 { font-size: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════ LOGIN ════════ -->
+<div id="login">
+  <div class="login-card">
+    <h1>📂 Documentos</h1>
+    <div class="sub">Auditoría de documentos firmados<br>Claudia Adorno SRL · Oficina</div>
+    <label>Email</label>
+    <input type="email" id="email" placeholder="tu_email@ejemplo.com" autocomplete="username">
+    <label>Contraseña</label>
+    <input type="password" id="pass" placeholder="••••••••••" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter') doLogin()">
+    <button onclick="doLogin()" id="btn-login">Entrar</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ════════ APP ════════ -->
+<div id="app">
+  <header>
+    <h1>📂 Documentos · Claudia Adorno</h1>
+    <div class="spacer"></div>
+    <div class="user-info" id="user-info"></div>
+    <button class="logout" onclick="doLogout()">Salir</button>
+  </header>
+
+  <nav class="tabs">
+    <button id="tab-recibos"    class="active" onclick="switchTab('recibos')">📋 Recibos de sueldo <span class="count" id="cnt-recibos">…</span></button>
+    <button id="tab-vacaciones" onclick="switchTab('vacaciones')">🌴 Vacaciones <span class="count" id="cnt-vacaciones">…</span></button>
+    <button id="tab-tesoreria"  onclick="switchTab('tesoreria')">💵 Tesorería <span class="count" id="cnt-tesoreria">…</span></button>
+  </nav>
+
+  <main>
+    <!-- ─── Recibos ─── -->
+    <section id="content-recibos" class="tab-content active">
+      <div class="filters">
+        <label>Año</label>
+        <select id="rec-anio" onchange="renderRecibos()"></select>
+        <label>Empleada</label>
+        <select id="rec-empleado" onchange="renderRecibos()"><option value="">Todas</option></select>
+        <label>Estado</label>
+        <select id="rec-estado" onchange="renderRecibos()">
+          <option value="">Todos</option>
+          <option value="firmado">✅ Guardado</option>
+          <option value="pendiente">⏳ Sin firma</option>
+        </select>
+        <div class="stat" id="rec-stat"></div>
+      </div>
+      <div id="rec-body"></div>
+    </section>
+
+    <!-- ─── Vacaciones ─── -->
+    <section id="content-vacaciones" class="tab-content">
+      <div class="filters">
+        <label>Año</label>
+        <select id="vac-anio" onchange="renderVacaciones()"></select>
+        <label>Empleada</label>
+        <select id="vac-empleado" onchange="renderVacaciones()"><option value="">Todas</option></select>
+        <label>Estado</label>
+        <select id="vac-estado" onchange="renderVacaciones()">
+          <option value="">Todos</option>
+          <option value="firmado">✅ Guardado</option>
+          <option value="pendiente">⏳ Sin firma</option>
+        </select>
+        <div class="stat" id="vac-stat"></div>
+      </div>
+      <div id="vac-body"></div>
+    </section>
+
+    <!-- ─── Tesorería ─── -->
+    <section id="content-tesoreria" class="tab-content">
+      <div class="filters">
+        <label>Año</label>
+        <select id="tes-anio" onchange="renderTesoreria()"></select>
+        <label>Cuenta</label>
+        <select id="tes-cuenta" onchange="renderTesoreria()"><option value="">Todas</option></select>
+        <label>Estado</label>
+        <select id="tes-estado" onchange="renderTesoreria()">
+          <option value="">Todos</option>
+          <option value="firmado">✅ Guardado</option>
+          <option value="pendiente">⏳ Sin firma</option>
+        </select>
+        <div class="stat" id="tes-stat"></div>
+      </div>
+      <div id="tes-body"></div>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// Config Supabase
+// ═══════════════════════════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://kwwiykssrpabncpqtmwi.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3d2l5a3NzcnBhYm5jcHF0bXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc1ODY2OTAsImV4cCI6MjA2MzE2MjY5MH0.E40lyVCRdpDvxKO19yC-yfwBHtJ0FdAQVAj-aN_KQ7c';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// Allowlist de emails (también está en RLS pero acá da error claro)
+const ALLOWED_EMAILS = [
+  'marisaisabel07@yahoo.com.ar',
+  'rivera.analia.leon@gmail.com',
+  'juanpsimonelli@gmail.com',
+];
+
+// Base SharePoint Web — para abrir PDFs en el navegador
+// Mapea: C:\Users\Usuario\OneDrive - Claudia Adorno SRL\DOCUMENTOS\X.pdf
+//   o:  /opt/adorno/recibos_archivados/X.pdf
+// → https://claudiaadornosrl-my.sharepoint.com/personal/.../Documents/X.pdf
+const SHAREPOINT_BASE = 'https://claudiaadornosrl-my.sharepoint.com/personal/office_claudiaadorno_onmicrosoft_com/Documents/';
+const ONEDRIVE_WIN_PREFIX = 'C:\\Users\\Usuario\\OneDrive - Claudia Adorno SRL\\DOCUMENTOS\\';
+const VPS_PREFIX = '/opt/adorno/recibos_archivados/';
+
+let session = null;
+let _empleados = [];   // cache
+let _cuentas = [];     // cache
+let _recibos = [];     // cache
+let _vacaciones = [];  // cache
+let _tesoreria = [];   // cache
+
+// ═══════════════════════════════════════════════════════════════════════
+// Helpers
+// ═══════════════════════════════════════════════════════════════════════
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function fmtFecha(s) {
+  if (!s) return '';
+  const [y, m, d] = s.substring(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function fmtMoneda(n) {
+  if (n == null || isNaN(n)) return '';
+  return '$ ' + Number(n).toLocaleString('es-AR', { maximumFractionDigits: 2 });
+}
+
+function fmtPeriodo(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${meses[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+function toast(msg, kind = '') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + kind;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+/**
+ * Convierte el path almacenado en la DB (puede ser path Windows local o path
+ * del VPS Linux) a una URL de SharePoint Web que abre el archivo en el browser.
+ * Si el path es genérico ("OneDrive (formato anterior...)") o no matchea, devuelve null.
+ */
+function pathToSharepointUrl(path) {
+  if (!path || typeof path !== 'string') return null;
+  let resto;
+  if (path.startsWith(ONEDRIVE_WIN_PREFIX)) {
+    resto = path.substring(ONEDRIVE_WIN_PREFIX.length);
+  } else if (path.startsWith(VPS_PREFIX)) {
+    resto = path.substring(VPS_PREFIX.length);
+  } else {
+    return null;  // formato no reconocido — no podemos linkear
+  }
+  // Normalizar separadores Win → Web
+  resto = resto.replace(/\\/g, '/');
+  // URL-encodear cada componente (espacios, acentos, etc.)
+  const encoded = resto.split('/').map(encodeURIComponent).join('/');
+  return SHAREPOINT_BASE + encoded;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Login
+// ═══════════════════════════════════════════════════════════════════════
+async function doLogin() {
+  const email = document.getElementById('email').value.trim().toLowerCase();
+  const pass  = document.getElementById('pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'Email y contraseña obligatorios'; return; }
+  if (!ALLOWED_EMAILS.includes(email)) {
+    errEl.textContent = 'Este módulo es solo para Oficina (Marisa, Analía, JP).';
+    return;
+  }
+  document.getElementById('btn-login').disabled = true;
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    session = { email, user: data.user };
+    document.getElementById('user-info').textContent = email;
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    await cargarTodo();
+  } catch (e) {
+    errEl.textContent = 'Error: ' + (e.message || 'desconocido');
+  } finally {
+    document.getElementById('btn-login').disabled = false;
+  }
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  location.reload();
+}
+
+// Restaurar sesión al cargar
+(async () => {
+  const { data: { session: s } } = await sb.auth.getSession();
+  if (s && ALLOWED_EMAILS.includes((s.user?.email || '').toLowerCase())) {
+    session = { email: s.user.email, user: s.user };
+    document.getElementById('user-info').textContent = s.user.email;
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    await cargarTodo();
+  }
+})();
+
+// SW register
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Cargar datos
+// ═══════════════════════════════════════════════════════════════════════
+async function cargarTodo() {
+  try {
+    // Empleados activos (para filtros)
+    const { data: emps } = await sb.from('rrhh_empleados')
+      .select('id, nombre_completo, local, activo')
+      .eq('activo', true)
+      .order('nombre_completo');
+    _empleados = emps || [];
+
+    // Cuentas tesorería (para filtros)
+    const { data: cts } = await sb.from('tesoreria_cuentas')
+      .select('id, nombre, tipo, local')
+      .order('nombre');
+    _cuentas = cts || [];
+
+    await Promise.all([
+      cargarRecibos(),
+      cargarVacaciones(),
+      cargarTesoreria(),
+    ]);
+  } catch (e) {
+    toast('Error al cargar datos: ' + e.message, 'error');
+  }
+}
+
+async function cargarRecibos() {
+  // Trae las liquidaciones con info de la empleada
+  const { data, error } = await sb.from('rrhh_liquidacion')
+    .select('id, periodo, empleado_id, total_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local')
+    .order('periodo', { ascending: false })
+    .order('empleado_id');
+  if (error) { console.error('recibos:', error); return; }
+  _recibos = data || [];
+  populateFiltros('rec', _recibos.map(r => r.periodo));
+  renderRecibos();
+}
+
+async function cargarVacaciones() {
+  const { data, error } = await sb.from('rrhh_vacaciones_movimientos')
+    .select('id, empleado_id, fecha_desde, fecha_hasta, dias, estado, tipo_solicitud, documento_firmado_at, documento_firmado_path, documento_firmado_origen, fecha_solicitud')
+    .order('fecha_desde', { ascending: false });
+  if (error) { console.error('vacaciones:', error); return; }
+  _vacaciones = data || [];
+  populateFiltros('vac', _vacaciones.map(v => v.fecha_desde));
+  renderVacaciones();
+}
+
+async function cargarTesoreria() {
+  const { data, error } = await sb.from('tesoreria_movimientos')
+    .select('id, codigo_seguimiento, fecha, importe, descripcion, cuenta_id, cargado_por, cargado_at, requiere_firma, firmado_at, firmado_origen, pdf_path')
+    .eq('requiere_firma', true)  // solo egresos que requieren firma
+    .order('fecha', { ascending: false });
+  if (error) { console.error('tesoreria:', error); return; }
+  _tesoreria = data || [];
+  populateFiltros('tes', _tesoreria.map(t => t.fecha));
+  // Selector de cuentas
+  const sel = document.getElementById('tes-cuenta');
+  sel.innerHTML = '<option value="">Todas</option>' +
+    _cuentas.filter(c => _tesoreria.some(t => t.cuenta_id === c.id))
+      .map(c => `<option value="${c.id}">${escHtml(c.nombre)}</option>`).join('');
+  renderTesoreria();
+}
+
+function populateFiltros(prefix, fechas) {
+  // Año
+  const anios = [...new Set(fechas.filter(f => f).map(f => f.substring(0, 4)))].sort().reverse();
+  const selAnio = document.getElementById(prefix + '-anio');
+  selAnio.innerHTML = '<option value="">Todos</option>' +
+    anios.map(a => `<option value="${a}">${a}</option>`).join('');
+  // Por default selecciono el año actual
+  const anioActual = String(new Date().getFullYear());
+  if (anios.includes(anioActual)) selAnio.value = anioActual;
+
+  // Empleada (solo recibos y vacaciones)
+  if (prefix === 'rec' || prefix === 'vac') {
+    const selEmp = document.getElementById(prefix + '-empleado');
+    selEmp.innerHTML = '<option value="">Todas</option>' +
+      _empleados.map(e => `<option value="${e.id}">${escHtml(e.nombre_completo)}</option>`).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Render: Recibos
+// ═══════════════════════════════════════════════════════════════════════
+function renderRecibos() {
+  const anio = document.getElementById('rec-anio').value;
+  const empId = document.getElementById('rec-empleado').value;
+  const estado = document.getElementById('rec-estado').value;
+
+  let filtrados = _recibos.slice();
+  if (anio) filtrados = filtrados.filter(r => r.periodo && r.periodo.startsWith(anio));
+  if (empId) filtrados = filtrados.filter(r => r.empleado_id === parseInt(empId));
+  if (estado === 'firmado') filtrados = filtrados.filter(r => !!r.pdf_firmado_at);
+  else if (estado === 'pendiente') filtrados = filtrados.filter(r => !r.pdf_firmado_at);
+
+  document.getElementById('cnt-recibos').textContent = _recibos.length;
+  const firmados = filtrados.filter(r => r.pdf_firmado_at).length;
+  document.getElementById('rec-stat').innerHTML =
+    `<strong>${filtrados.length}</strong> recibos · <strong>${firmados}</strong> firmados · <strong>${filtrados.length - firmados}</strong> pendientes`;
+
+  if (filtrados.length === 0) {
+    document.getElementById('rec-body').innerHTML = empty('No hay recibos con esos filtros');
+    return;
+  }
+
+  const empMap = Object.fromEntries(_empleados.map(e => [e.id, e]));
+  const rows = filtrados.map(r => {
+    const emp = empMap[r.empleado_id] || {};
+    const url = pathToSharepointUrl(r.pdf_url_firmado);
+    const firmado = !!r.pdf_firmado_at;
+    const chip = firmado
+      ? `<span class="chip green">✅ Guardado</span>`
+      : `<span class="chip amber">⏳ Sin firma</span>`;
+    const onclick = (firmado && url)
+      ? `onclick="window.open('${url}', '_blank')"`
+      : (firmado
+          ? `onclick="toast('Path no convertible: ${escHtml(r.pdf_url_firmado || '')}','error')"`
+          : '');
+    const cls = firmado && url ? 'clickable' : (firmado ? 'clickable' : 'dim');
+    return `<tr class="${cls}" ${onclick}>
+      <td>${escHtml(emp.nombre_completo || '?')}</td>
+      <td>${escHtml(emp.local || '')}</td>
+      <td>${fmtPeriodo(r.periodo)}</td>
+      <td>${fmtMoneda(r.total_neto)}</td>
+      <td>${chip}</td>
+      <td>${firmado ? fmtFecha(r.pdf_firmado_at) : '—'}</td>
+      <td>${escHtml(r.pdf_url_firmado ? (url ? '🔗 SharePoint' : '⚠️ legacy') : '—')}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('rec-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Empleada</th><th>Local</th><th>Período</th><th>Neto</th>
+        <th>Estado</th><th>Fecha firma</th><th>Origen</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Render: Vacaciones
+// ═══════════════════════════════════════════════════════════════════════
+function renderVacaciones() {
+  const anio = document.getElementById('vac-anio').value;
+  const empId = document.getElementById('vac-empleado').value;
+  const estado = document.getElementById('vac-estado').value;
+
+  let filtrados = _vacaciones.slice();
+  if (anio) filtrados = filtrados.filter(v => v.fecha_desde && v.fecha_desde.startsWith(anio));
+  if (empId) filtrados = filtrados.filter(v => v.empleado_id === parseInt(empId));
+  if (estado === 'firmado') filtrados = filtrados.filter(v => !!v.documento_firmado_at);
+  else if (estado === 'pendiente') filtrados = filtrados.filter(v => !v.documento_firmado_at);
+
+  document.getElementById('cnt-vacaciones').textContent = _vacaciones.length;
+  const firmados = filtrados.filter(v => v.documento_firmado_at).length;
+  document.getElementById('vac-stat').innerHTML =
+    `<strong>${filtrados.length}</strong> registros · <strong>${firmados}</strong> firmados · <strong>${filtrados.length - firmados}</strong> pendientes`;
+
+  if (filtrados.length === 0) {
+    document.getElementById('vac-body').innerHTML = empty('No hay vacaciones con esos filtros');
+    return;
+  }
+
+  const empMap = Object.fromEntries(_empleados.map(e => [e.id, e]));
+  const rows = filtrados.map(v => {
+    const emp = empMap[v.empleado_id] || {};
+    const url = pathToSharepointUrl(v.documento_firmado_path);
+    const firmado = !!v.documento_firmado_at;
+    let chip;
+    if (firmado) chip = `<span class="chip green">✅ Guardado</span>`;
+    else if (v.estado === 'rechazada') chip = `<span class="chip red">❌ Rechazada</span>`;
+    else if (v.estado === 'aprobada')  chip = `<span class="chip amber">⏳ Sin firma</span>`;
+    else chip = `<span class="chip gray">${escHtml(v.estado)}</span>`;
+
+    const onclick = (firmado && url)
+      ? `onclick="window.open('${url}', '_blank')"`
+      : (firmado
+          ? `onclick="toast('Path no convertible: ${escHtml(v.documento_firmado_path || '')}','error')"`
+          : '');
+    const cls = firmado && url ? 'clickable' : (firmado ? 'clickable' : 'dim');
+
+    return `<tr class="${cls}" ${onclick}>
+      <td>${escHtml(emp.nombre_completo || '?')}</td>
+      <td>${escHtml(emp.local || '')}</td>
+      <td>${fmtFecha(v.fecha_desde)} → ${fmtFecha(v.fecha_hasta)}</td>
+      <td>${v.dias || '—'}</td>
+      <td>${escHtml(v.tipo_solicitud || '')}</td>
+      <td>${chip}</td>
+      <td>${firmado ? fmtFecha(v.documento_firmado_at) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('vac-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Empleada</th><th>Local</th><th>Período</th><th>Días</th>
+        <th>Tipo</th><th>Estado</th><th>Fecha firma</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Render: Tesorería
+// ═══════════════════════════════════════════════════════════════════════
+function renderTesoreria() {
+  const anio = document.getElementById('tes-anio').value;
+  const cuentaId = document.getElementById('tes-cuenta').value;
+  const estado = document.getElementById('tes-estado').value;
+
+  let filtrados = _tesoreria.slice();
+  if (anio) filtrados = filtrados.filter(t => t.fecha && t.fecha.startsWith(anio));
+  if (cuentaId) filtrados = filtrados.filter(t => t.cuenta_id === parseInt(cuentaId));
+  if (estado === 'firmado') filtrados = filtrados.filter(t => !!t.firmado_at);
+  else if (estado === 'pendiente') filtrados = filtrados.filter(t => !t.firmado_at);
+
+  document.getElementById('cnt-tesoreria').textContent = _tesoreria.length;
+  const firmados = filtrados.filter(t => t.firmado_at).length;
+  document.getElementById('tes-stat').innerHTML =
+    `<strong>${filtrados.length}</strong> movimientos · <strong>${firmados}</strong> firmados · <strong>${filtrados.length - firmados}</strong> pendientes`;
+
+  if (filtrados.length === 0) {
+    document.getElementById('tes-body').innerHTML = empty('No hay movimientos con esos filtros');
+    return;
+  }
+
+  const ctMap = Object.fromEntries(_cuentas.map(c => [c.id, c]));
+  const rows = filtrados.map(t => {
+    const ct = ctMap[t.cuenta_id] || {};
+    const url = pathToSharepointUrl(t.pdf_path);
+    const firmado = !!t.firmado_at;
+    const chip = firmado
+      ? `<span class="chip green">✅ Guardado</span>`
+      : `<span class="chip amber">⏳ Sin firma</span>`;
+    const onclick = (firmado && url)
+      ? `onclick="window.open('${url}', '_blank')"`
+      : (firmado
+          ? `onclick="toast('Path no convertible: ${escHtml(t.pdf_path || '')}','error')"`
+          : '');
+    const cls = firmado && url ? 'clickable' : (firmado ? 'clickable' : 'dim');
+    return `<tr class="${cls}" ${onclick}>
+      <td>${fmtFecha(t.fecha)}</td>
+      <td>${escHtml(t.codigo_seguimiento || '')}</td>
+      <td>${escHtml(ct.nombre || '?')}</td>
+      <td style="color:${t.importe < 0 ? 'var(--red)' : 'var(--green)'};">${fmtMoneda(t.importe)}</td>
+      <td>${escHtml(t.descripcion || '')}</td>
+      <td>${escHtml(t.cargado_por || '')}</td>
+      <td>${chip}</td>
+      <td>${firmado ? fmtFecha(t.firmado_at) : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tes-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Código</th><th>Cuenta</th><th>Importe</th>
+        <th>Descripción</th><th>Cargado por</th><th>Estado</th><th>Fecha firma</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Helpers UI
+// ═══════════════════════════════════════════════════════════════════════
+function empty(msg) {
+  return `<div class="empty"><div class="emoji">📭</div>${escHtml(msg)}</div>`;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.getElementById('content-' + name).classList.add('active');
+}
+</script>
+
+</body>
+</html>
