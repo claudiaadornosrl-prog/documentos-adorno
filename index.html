@@ -547,13 +547,16 @@ function renderVacaciones() {
   const empId = document.getElementById('vac-empleado').value;
   const estado = document.getElementById('vac-estado').value;
 
-  let filtrados = _vacaciones.slice();
+  // Filtro base: NO mostrar rechazadas (no aportan a la auditoría de firmas)
+  let filtrados = _vacaciones.filter(v => v.estado !== 'rechazada');
   if (anio) filtrados = filtrados.filter(v => v.fecha_desde && v.fecha_desde.startsWith(anio));
   if (empId) filtrados = filtrados.filter(v => v.empleado_id === parseInt(empId));
   if (estado === 'firmado') filtrados = filtrados.filter(v => !!v.documento_firmado_at);
   else if (estado === 'pendiente') filtrados = filtrados.filter(v => !v.documento_firmado_at);
 
-  document.getElementById('cnt-vacaciones').textContent = _vacaciones.length;
+  // El badge del tab cuenta solo las no-rechazadas (las que SÍ requieren firma)
+  document.getElementById('cnt-vacaciones').textContent =
+    _vacaciones.filter(v => v.estado !== 'rechazada').length;
   const firmados = filtrados.filter(v => v.documento_firmado_at).length;
   document.getElementById('vac-stat').innerHTML =
     `<strong>${filtrados.length}</strong> registros · <strong>${firmados}</strong> firmados · <strong>${filtrados.length - firmados}</strong> pendientes`;
