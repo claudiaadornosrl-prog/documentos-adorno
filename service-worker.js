@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v4-ocultar-rechazadas';
+const CACHE_VERSION = 'docs-v5-fix-sharepoint-url';
 const CACHE_ASSETS = [
   './',
   './index.html',

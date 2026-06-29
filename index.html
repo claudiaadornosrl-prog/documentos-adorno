@@ -271,11 +271,16 @@ const ALLOWED_EMAILS = [
   'juanpsimonelli@gmail.com',
 ];
 
-// Base SharePoint Web — para abrir PDFs en el navegador
+// Base SharePoint Web — para abrir PDFs en el navegador.
+// Verificada con Microsoft 365 MCP (sharepoint_search).
+// El tenant es claudiaadorno.onmicrosoft.com (sin "srl"), y el library
+// SharePoint default es "Documents" — dentro vive la carpeta "DOCUMENTOS"
+// (que en Windows se sincroniza como "OneDrive - Claudia Adorno SRL\DOCUMENTOS").
+//
 // Mapea: C:\Users\Usuario\OneDrive - Claudia Adorno SRL\DOCUMENTOS\X.pdf
 //   o:  /opt/adorno/recibos_archivados/X.pdf
-// → https://claudiaadornosrl-my.sharepoint.com/personal/.../Documents/X.pdf
-const SHAREPOINT_BASE = 'https://claudiaadornosrl-my.sharepoint.com/personal/office_claudiaadorno_onmicrosoft_com/Documents/';
+// → https://claudiaadorno-my.sharepoint.com/personal/.../Documents/DOCUMENTOS/X.pdf
+const SHAREPOINT_BASE = 'https://claudiaadorno-my.sharepoint.com/personal/office_claudiaadorno_onmicrosoft_com/Documents/DOCUMENTOS/';
 const ONEDRIVE_WIN_PREFIX = 'C:\\Users\\Usuario\\OneDrive - Claudia Adorno SRL\\DOCUMENTOS\\';
 const VPS_PREFIX = '/opt/adorno/recibos_archivados/';
 
