@@ -313,10 +313,14 @@ function fmtMoneda(n) {
 }
 
 function fmtPeriodo(s) {
+  // Parsea YYYY-MM-DD directo sin usar new Date() para evitar el shift de
+  // timezone Argentina (UTC-3 hace que '2026-05-01' se renderice como 'Abr 2026').
   if (!s) return '';
-  const d = new Date(s);
+  const parts = s.substring(0, 7).split('-');
+  if (parts.length < 2) return s;
   const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-  return `${meses[d.getMonth()]} ${d.getFullYear()}`;
+  const mes = meses[parseInt(parts[1], 10) - 1] || parts[1];
+  return `${mes} ${parts[0]}`;
 }
 
 function toast(msg, kind = '') {

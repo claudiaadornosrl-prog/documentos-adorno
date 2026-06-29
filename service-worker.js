@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v6-fix-recibo-neto';
+const CACHE_VERSION = 'docs-v7-fix-timezone-periodo';
 const CACHE_ASSETS = [
   './',
   './index.html',
