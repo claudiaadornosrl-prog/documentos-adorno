@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v2-fix-anon-key';
+const CACHE_VERSION = 'docs-v3-fix-empleados-estado';
 const CACHE_ASSETS = [
   './',
   './index.html',

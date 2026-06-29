@@ -400,10 +400,11 @@ if ('serviceWorker' in navigator) {
 // ═══════════════════════════════════════════════════════════════════════
 async function cargarTodo() {
   try {
-    // Empleados activos (para filtros)
+    // Empleados activos (para filtros). NOTA: la columna se llama 'estado'
+    // y el valor es 'activo' (no es un boolean), distinto a otras tablas.
     const { data: emps } = await sb.from('rrhh_empleados')
-      .select('id, nombre_completo, local, activo')
-      .eq('activo', true)
+      .select('id, nombre_completo, local, estado')
+      .eq('estado', 'activo')
       .order('nombre_completo');
     _empleados = emps || [];
 
