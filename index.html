@@ -430,12 +430,13 @@ async function cargarTodo() {
 }
 
 async function cargarRecibos() {
-  // Trae las liquidaciones con info de la empleada
+  // Trae las liquidaciones con info de la empleada.
+  // NOTA: la columna del neto se llama `recibo_neto` (no total_neto).
   const { data, error } = await sb.from('rrhh_liquidacion')
-    .select('id, periodo, empleado_id, total_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local')
+    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local')
     .order('periodo', { ascending: false })
     .order('empleado_id');
-  if (error) { console.error('recibos:', error); return; }
+  if (error) { console.error('recibos:', error); toast('Error cargando recibos: ' + error.message, 'error'); return; }
   _recibos = data || [];
   populateFiltros('rec', _recibos.map(r => r.periodo));
   renderRecibos();
@@ -527,7 +528,7 @@ function renderRecibos() {
       <td>${escHtml(emp.nombre_completo || '?')}</td>
       <td>${escHtml(emp.local || '')}</td>
       <td>${fmtPeriodo(r.periodo)}</td>
-      <td>${fmtMoneda(r.total_neto)}</td>
+      <td>${fmtMoneda(r.recibo_neto)}</td>
       <td>${chip}</td>
       <td>${firmado ? fmtFecha(r.pdf_firmado_at) : '—'}</td>
       <td>${escHtml(r.pdf_url_firmado ? (url ? '🔗 SharePoint' : '⚠️ legacy') : '—')}</td>
