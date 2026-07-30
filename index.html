@@ -594,13 +594,14 @@ function renderFacturas() {
     const enviada = f.factura_enviada_at
       ? `<span class="chip green" title="Enviada a administración el ${new Date(f.factura_enviada_at).toLocaleDateString('es-AR')}">📬 Enviada</span>`
       : `<span class="chip amber">⏳ Por enviar</span>`;
-    return `<tr class="clickable" onclick="window.open('${escHtml(f.factura_path || '')}', '_blank')">
+    const tieneArchivo = !!f.factura_path;
+    return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
       <td>${fmtFecha(f.fecha)}</td>
       <td>${escHtml(ct.nombre || '?')}</td>
       <td style="color:var(--red);">${fmtMoneda(f.importe)}</td>
       <td>${escHtml(f.descripcion || '')}</td>
       <td>${escHtml(f.cargado_por || '')}</td>
-      <td>📎 Ver factura</td>
+      <td>${tieneArchivo ? '📎 Ver factura' : '<span title="Imagen borrada a los 30 días del envío — el respaldo está en el archivero">🗄 Archivada</span>'}</td>
       <td>${enviada}</td>
       <td>${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}</td>
     </tr>`;

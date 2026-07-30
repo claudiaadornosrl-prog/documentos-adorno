@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v9-facturas-y-control';
+const CACHE_VERSION = 'docs-v10-facturas-purgadas';
 const CACHE_ASSETS = [
   './',
   './index.html',
