@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v8-solo-recibos-definitivos';
+const CACHE_VERSION = 'docs-v9-facturas-y-control';
 const CACHE_ASSETS = [
   './',
   './index.html',

@@ -196,6 +196,7 @@
     <button id="tab-recibos"    class="active" onclick="switchTab('recibos')">📋 Recibos de sueldo <span class="count" id="cnt-recibos">…</span></button>
     <button id="tab-vacaciones" onclick="switchTab('vacaciones')">🌴 Vacaciones <span class="count" id="cnt-vacaciones">…</span></button>
     <button id="tab-tesoreria"  onclick="switchTab('tesoreria')">💵 Tesorería <span class="count" id="cnt-tesoreria">…</span></button>
+    <button id="tab-facturas"   onclick="switchTab('facturas')">🧺 Facturas <span class="count" id="cnt-facturas">…</span></button>
   </nav>
 
   <main>
@@ -251,6 +252,24 @@
         <div class="stat" id="tes-stat"></div>
       </div>
       <div id="tes-body"></div>
+    </section>
+
+    <!-- ─── Facturas (egresos con factura adjunta) ─── -->
+    <section id="content-facturas" class="tab-content">
+      <div class="filters">
+        <label>Año</label>
+        <select id="fac-anio" onchange="renderFacturas()"></select>
+        <label>Cuenta</label>
+        <select id="fac-cuenta" onchange="renderFacturas()"><option value="">Todas</option></select>
+        <label>Estado</label>
+        <select id="fac-estado" onchange="renderFacturas()">
+          <option value="">Todos</option>
+          <option value="controlado">☑ Controladas</option>
+          <option value="pendiente">⬜ Sin controlar</option>
+        </select>
+        <div class="stat" id="fac-stat"></div>
+      </div>
+      <div id="fac-body"></div>
     </section>
   </main>
 </div>
@@ -382,6 +401,39 @@ async function doLogin() {
   }
 }
 
+let esAdmin = false;
+async function detectarAdmin() {
+  try {
+    const { data } = await sb.rpc('rrhh_current_user');
+    esAdmin = data?.rol === 'admin';
+  } catch (_) { esAdmin = false; }
+}
+
+// ── Tilde de control: cualquiera lo pone; SOLO el admin lo puede sacar ──
+function chipControl(tipo, id, controlado, por, at) {
+  if (controlado) {
+    const info = `Controlado por ${por || '?'} el ${at ? new Date(at).toLocaleDateString('es-AR') : '?'}`;
+    if (esAdmin) {
+      return `<span class="chip green" style="cursor:pointer;" title="${escHtml(info)} — click para QUITAR (solo admin)"
+        onclick="event.stopPropagation();marcarControl('${tipo}', ${id}, false)">☑ Controlado</span>`;
+    }
+    return `<span class="chip green" title="${escHtml(info)}">☑ Controlado</span>`;
+  }
+  return `<span class="chip gray" style="cursor:pointer;" title="Marcar como controlado (queda fijo)"
+    onclick="event.stopPropagation();marcarControl('${tipo}', ${id}, true)">⬜ Controlar</span>`;
+}
+
+async function marcarControl(tipo, id, valor) {
+  if (!valor && !confirm('¿Quitar el control de este documento?')) return;
+  if (valor && !confirm('¿Marcar como controlado?\n\nEl tilde queda fijo: solo el administrador puede sacarlo.')) return;
+  try {
+    const { error } = await sb.rpc('doc_marcar_control', { p_tipo: tipo, p_id: id, p_valor: valor });
+    if (error) throw error;
+    toast(valor ? '☑ Controlado' : 'Control quitado');
+    await cargarTodo();
+  } catch (e) { toast('Error: ' + (e.message || e), 'error'); }
+}
+
 async function doLogout() {
   await sb.auth.signOut();
   location.reload();
@@ -423,10 +475,12 @@ async function cargarTodo() {
       .order('nombre');
     _cuentas = cts || [];
 
+    await detectarAdmin();
     await Promise.all([
       cargarRecibos(),
       cargarVacaciones(),
       cargarTesoreria(),
+      cargarFacturas(),
     ]);
   } catch (e) {
     toast('Error al cargar datos: ' + e.message, 'error');
@@ -440,7 +494,7 @@ async function cargarRecibos() {
   // la proforma del mes en curso y no corresponde que se vean acá — antes
   // aparecían los 20 de julio sin firmar, sin que existiera todavía el recibo.
   const { data, error } = await sb.from('rrhh_liquidacion')
-    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado')
+    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at')
     .neq('estado', 'borrador')
     .order('periodo', { ascending: false })
     .order('empleado_id');
@@ -452,7 +506,7 @@ async function cargarRecibos() {
 
 async function cargarVacaciones() {
   const { data, error } = await sb.from('rrhh_vacaciones_movimientos')
-    .select('id, empleado_id, fecha_desde, fecha_hasta, dias, estado, tipo_solicitud, documento_firmado_at, documento_firmado_path, documento_firmado_origen, fecha_solicitud')
+    .select('id, empleado_id, fecha_desde, fecha_hasta, dias, estado, tipo_solicitud, documento_firmado_at, documento_firmado_path, documento_firmado_origen, fecha_solicitud, controlado, controlado_por, controlado_at')
     .order('fecha_desde', { ascending: false });
   if (error) { console.error('vacaciones:', error); return; }
   _vacaciones = data || [];
@@ -462,7 +516,7 @@ async function cargarVacaciones() {
 
 async function cargarTesoreria() {
   const { data, error } = await sb.from('tesoreria_movimientos')
-    .select('id, codigo_seguimiento, fecha, importe, descripcion, cuenta_id, cargado_por, cargado_at, requiere_firma, firmado_at, firmado_origen, pdf_path')
+    .select('id, codigo_seguimiento, fecha, importe, descripcion, cuenta_id, cargado_por, cargado_at, requiere_firma, firmado_at, firmado_origen, pdf_path, controlado, controlado_por, controlado_at')
     .eq('requiere_firma', true)  // solo egresos que requieren firma
     .order('fecha', { ascending: false });
   if (error) { console.error('tesoreria:', error); return; }
@@ -497,6 +551,71 @@ function populateFiltros(prefix, fechas) {
 // ═══════════════════════════════════════════════════════════════════════
 // Render: Recibos
 // ═══════════════════════════════════════════════════════════════════════
+let _facturas = [];
+async function cargarFacturas() {
+  const { data, error } = await sb.from('tesoreria_movimientos')
+    .select('id, fecha, importe, descripcion, cuenta_id, cargado_por, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at')
+    .eq('respaldo_tipo', 'factura')
+    .order('fecha', { ascending: false });
+  if (error) { console.error('facturas:', error); return; }
+  _facturas = data || [];
+  populateFiltros('fac', _facturas.map(f => f.fecha));
+  const sel = document.getElementById('fac-cuenta');
+  sel.innerHTML = '<option value="">Todas</option>' +
+    _cuentas.filter(c => _facturas.some(f => f.cuenta_id === c.id))
+      .map(c => `<option value="${c.id}">${escHtml(c.nombre)}</option>`).join('');
+  renderFacturas();
+}
+
+function renderFacturas() {
+  const anio = document.getElementById('fac-anio').value;
+  const cuentaId = document.getElementById('fac-cuenta').value;
+  const estado = document.getElementById('fac-estado').value;
+
+  let filtrados = _facturas.slice();
+  if (anio) filtrados = filtrados.filter(f => f.fecha && f.fecha.startsWith(anio));
+  if (cuentaId) filtrados = filtrados.filter(f => f.cuenta_id === parseInt(cuentaId));
+  if (estado === 'controlado') filtrados = filtrados.filter(f => f.controlado);
+  else if (estado === 'pendiente') filtrados = filtrados.filter(f => !f.controlado);
+
+  document.getElementById('cnt-facturas').textContent = _facturas.length;
+  const ctrl = filtrados.filter(f => f.controlado).length;
+  document.getElementById('fac-stat').innerHTML =
+    `<strong>${filtrados.length}</strong> facturas · <strong>${ctrl}</strong> controladas · <strong>${filtrados.length - ctrl}</strong> pendientes`;
+
+  if (filtrados.length === 0) {
+    document.getElementById('fac-body').innerHTML = empty('No hay facturas con esos filtros');
+    return;
+  }
+
+  const ctMap = Object.fromEntries(_cuentas.map(c => [c.id, c]));
+  const rows = filtrados.map(f => {
+    const ct = ctMap[f.cuenta_id] || {};
+    const enviada = f.factura_enviada_at
+      ? `<span class="chip green" title="Enviada a administración el ${new Date(f.factura_enviada_at).toLocaleDateString('es-AR')}">📬 Enviada</span>`
+      : `<span class="chip amber">⏳ Por enviar</span>`;
+    return `<tr class="clickable" onclick="window.open('${escHtml(f.factura_path || '')}', '_blank')">
+      <td>${fmtFecha(f.fecha)}</td>
+      <td>${escHtml(ct.nombre || '?')}</td>
+      <td style="color:var(--red);">${fmtMoneda(f.importe)}</td>
+      <td>${escHtml(f.descripcion || '')}</td>
+      <td>${escHtml(f.cargado_por || '')}</td>
+      <td>📎 Ver factura</td>
+      <td>${enviada}</td>
+      <td>${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('fac-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Caja</th><th>Importe</th><th>Descripción</th>
+        <th>Cargado por</th><th>Factura</th><th>Envío</th><th>Control</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
 function renderRecibos() {
   const anio = document.getElementById('rec-anio').value;
   const empId = document.getElementById('rec-empleado').value;
@@ -540,6 +659,7 @@ function renderRecibos() {
       <td>${chip}</td>
       <td>${firmado ? fmtFecha(r.pdf_firmado_at) : '—'}</td>
       <td>${escHtml(r.pdf_url_firmado ? (url ? '🔗 SharePoint' : '⚠️ legacy') : '—')}</td>
+      <td>${chipControl('recibo', r.id, r.controlado, r.controlado_por, r.controlado_at)}</td>
     </tr>`;
   }).join('');
 
@@ -547,7 +667,7 @@ function renderRecibos() {
     <table>
       <thead><tr>
         <th>Empleada</th><th>Local</th><th>Período</th><th>Neto</th>
-        <th>Estado</th><th>Fecha firma</th><th>Origen</th>
+        <th>Estado</th><th>Fecha firma</th><th>Origen</th><th>Control</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -606,6 +726,7 @@ function renderVacaciones() {
       <td>${escHtml(v.tipo_solicitud || '')}</td>
       <td>${chip}</td>
       <td>${firmado ? fmtFecha(v.documento_firmado_at) : '—'}</td>
+      <td>${chipControl('vacaciones', v.id, v.controlado, v.controlado_por, v.controlado_at)}</td>
     </tr>`;
   }).join('');
 
@@ -613,7 +734,7 @@ function renderVacaciones() {
     <table>
       <thead><tr>
         <th>Empleada</th><th>Local</th><th>Período</th><th>Días</th>
-        <th>Tipo</th><th>Estado</th><th>Fecha firma</th>
+        <th>Tipo</th><th>Estado</th><th>Fecha firma</th><th>Control</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -666,6 +787,7 @@ function renderTesoreria() {
       <td>${escHtml(t.cargado_por || '')}</td>
       <td>${chip}</td>
       <td>${firmado ? fmtFecha(t.firmado_at) : '—'}</td>
+      <td>${chipControl('tesoreria', t.id, t.controlado, t.controlado_por, t.controlado_at)}</td>
     </tr>`;
   }).join('');
 
@@ -673,7 +795,7 @@ function renderTesoreria() {
     <table>
       <thead><tr>
         <th>Fecha</th><th>Código</th><th>Cuenta</th><th>Importe</th>
-        <th>Descripción</th><th>Cargado por</th><th>Estado</th><th>Fecha firma</th>
+        <th>Descripción</th><th>Cargado por</th><th>Estado</th><th>Fecha firma</th><th>Control</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
