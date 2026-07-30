@@ -436,8 +436,12 @@ async function cargarTodo() {
 async function cargarRecibos() {
   // Trae las liquidaciones con info de la empleada.
   // NOTA: la columna del neto se llama `recibo_neto` (no total_neto).
+  // (jul 2026) Solo recibos DEFINITIVOS: las liquidaciones en 'borrador' son
+  // la proforma del mes en curso y no corresponde que se vean acá — antes
+  // aparecían los 20 de julio sin firmar, sin que existiera todavía el recibo.
   const { data, error } = await sb.from('rrhh_liquidacion')
-    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local')
+    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado')
+    .neq('estado', 'borrador')
     .order('periodo', { ascending: false })
     .order('empleado_id');
   if (error) { console.error('recibos:', error); toast('Error cargando recibos: ' + error.message, 'error'); return; }
