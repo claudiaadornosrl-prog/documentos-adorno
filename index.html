@@ -288,7 +288,29 @@ const ALLOWED_EMAILS = [
   'marisaisabel07@yahoo.com.ar',
   'rivera.analia.leon@gmail.com',
   'juanpsimonelli@gmail.com',
+  'administracion@claudiaadorno.com',
+  'claudiaadorno@claudiaadorno.com',
 ];
+// (4-ago, bifurcación JP) Estos usuarios ven todo EXCEPTO Recibos de sueldo:
+const SIN_RECIBOS_EMAILS = [
+  'claudiaadorno@claudiaadorno.com',
+  'rivera.analia.leon@gmail.com',
+];
+// El sistema nuevo arranca en mayo 2026 — documentos anteriores no se listan.
+const RECIBOS_DESDE = '2026-05-01';
+function puedeVerRecibos() {
+  return !SIN_RECIBOS_EMAILS.includes((session?.email || '').toLowerCase());
+}
+function aplicarPermisosTabs() {
+  const tabR = document.getElementById('tab-recibos');
+  if (!puedeVerRecibos()) {
+    tabR.style.display = 'none';
+    // Si el tab activo era recibos, saltar a vacaciones
+    if (tabR.classList.contains('active')) switchTab('vacaciones');
+  } else {
+    tabR.style.display = '';
+  }
+}
 
 // Base SharePoint Web — para abrir PDFs en el navegador.
 // Verificada con Microsoft 365 MCP (sharepoint_search).
@@ -463,6 +485,7 @@ if ('serviceWorker' in navigator) {
 // Cargar datos
 // ═══════════════════════════════════════════════════════════════════════
 async function cargarTodo() {
+  aplicarPermisosTabs();  // ocultar Recibos a quien no corresponde (bifurcación 4-ago)
   try {
     // Empleados activos (para filtros). NOTA: la columna se llama 'estado'
     // y el valor es 'activo' (no es un boolean), distinto a otras tablas.
@@ -491,6 +514,7 @@ async function cargarTodo() {
 }
 
 async function cargarRecibos() {
+  if (!puedeVerRecibos()) { _recibos = []; return; }
   // Trae las liquidaciones con info de la empleada.
   // NOTA: la columna del neto se llama `recibo_neto` (no total_neto).
   // (jul 2026) Solo recibos DEFINITIVOS: las liquidaciones en 'borrador' son
@@ -499,6 +523,7 @@ async function cargarRecibos() {
   const { data, error } = await sb.from('rrhh_liquidacion')
     .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at')
     .neq('estado', 'borrador')
+    .gte('periodo', RECIBOS_DESDE)  // solo documentos del sistema nuevo
     .order('periodo', { ascending: false })
     .order('empleado_id');
   if (error) { console.error('recibos:', error); toast('Error cargando recibos: ' + error.message, 'error'); return; }
