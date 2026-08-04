@@ -357,6 +357,9 @@ function toast(msg, kind = '') {
  */
 function pathToSharepointUrl(path) {
   if (!path || typeof path !== 'string') return null;
+  // (4-ago) Si ya es una URL web (el archivador nuevo guarda la URL de
+  // SharePoint directa), usarla tal cual — antes caía a "legacy" por error.
+  if (/^https?:\/\//i.test(path)) return path;
   let resto;
   if (path.startsWith(ONEDRIVE_WIN_PREFIX)) {
     resto = path.substring(ONEDRIVE_WIN_PREFIX.length);
