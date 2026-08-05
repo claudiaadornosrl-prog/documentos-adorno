@@ -698,12 +698,12 @@ function renderFacturas() {
     return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
       <td>${fmtFecha(f.fecha)}</td>
       <td>${escHtml(ct.nombre || '?')}</td>
-      <td style="color:var(--red);">${fmtMoneda(f.importe)}${obs}</td>
+      <td style="color:var(--red);">${fmtMoneda(f.importe)}</td>
       <td>${escHtml(f.descripcion || '')}</td>
       <td>${escHtml(f.cargado_por || '')}</td>
       <td>${tieneArchivo ? '📎 Ver factura' : '<span title="Imagen borrada a los 30 días del envío — el respaldo está en el archivero">🗄 Archivada</span>'}</td>
       <td>${enviada}</td>
-      <td>${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}</td>
+      <td style="white-space:nowrap;">${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}${obs}</td>
     </tr>`;
   }).join('');
 

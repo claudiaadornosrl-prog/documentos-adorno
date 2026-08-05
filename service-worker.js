@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v17-observar-facturas';
+const CACHE_VERSION = 'docs-v18-observar-junto-control';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
