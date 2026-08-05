@@ -213,6 +213,9 @@
           <option value="firmado">✅ Guardado</option>
           <option value="pendiente">⏳ Sin firma</option>
         </select>
+        <input type="search" id="rec-buscar" placeholder="🔎 Buscar…"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;min-width:170px;"
+          oninput="docBuscar('rec', this.value, renderRecibos)">
         <div class="stat" id="rec-stat"></div>
       </div>
       <div id="rec-body"></div>
@@ -231,6 +234,9 @@
           <option value="firmado">✅ Guardado</option>
           <option value="pendiente">⏳ Sin firma</option>
         </select>
+        <input type="search" id="vac-buscar" placeholder="🔎 Buscar…"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;min-width:170px;"
+          oninput="docBuscar('vac', this.value, renderVacaciones)">
         <div class="stat" id="vac-stat"></div>
       </div>
       <div id="vac-body"></div>
@@ -249,6 +255,9 @@
           <option value="firmado">✅ Guardado</option>
           <option value="pendiente">⏳ Sin firma</option>
         </select>
+        <input type="search" id="tes-buscar" placeholder="🔎 Buscar…"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;min-width:170px;"
+          oninput="docBuscar('tes', this.value, renderTesoreria)">
         <div class="stat" id="tes-stat"></div>
       </div>
       <div id="tes-body"></div>
@@ -267,6 +276,9 @@
           <option value="controlado">☑ Controladas</option>
           <option value="pendiente">⬜ Sin controlar</option>
         </select>
+        <input type="search" id="fac-buscar" placeholder="🔎 Buscar…"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;min-width:170px;"
+          oninput="docBuscar('fac', this.value, renderFacturas)">
         <div class="stat" id="fac-stat"></div>
       </div>
       <div id="fac-body"></div>
@@ -595,6 +607,48 @@ async function cargarFacturas() {
   renderFacturas();
 }
 
+// ═══ (5-ago, JP) Búsqueda + orden por columna en TODAS las tablas ═══
+const _docSort = { fac:{by:null,dir:1}, rec:{by:null,dir:1}, vac:{by:null,dir:1}, tes:{by:null,dir:1} };
+const _docBusq = { fac:'', rec:'', vac:'', tes:'' };
+function docBuscar(tab, val, renderFn) {
+  _docBusq[tab] = val;
+  clearTimeout(window._docBuscarT);
+  window._docBuscarT = setTimeout(() => {
+    renderFn();
+    const i = document.getElementById(tab + '-buscar');
+    if (i && document.activeElement !== i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+  }, 300);
+}
+const _DOC_RENDERS = {};
+function docOrdenar(tab, key) {
+  const st = _docSort[tab];
+  if (st.by === key) st.dir = -st.dir; else { st.by = key; st.dir = 1; }
+  (_DOC_RENDERS[tab] || (() => {}))();
+}
+function docAplicar(tab, lista, getters) {
+  const txt = (_docBusq[tab] || '').toLowerCase().trim();
+  let out = lista;
+  if (txt) out = out.filter(x => Object.values(getters).some(g => String(g(x) ?? '').toLowerCase().includes(txt)));
+  const st = _docSort[tab];
+  if (st.by && getters[st.by]) {
+    out = out.slice().sort((a, b) => {
+      const va = getters[st.by](a), vb = getters[st.by](b);
+      const cmp = (typeof va === 'number' && typeof vb === 'number') ? va - vb : String(va ?? '').localeCompare(String(vb ?? ''));
+      return cmp * st.dir;
+    });
+  }
+  return out;
+}
+function docTh(tab, key, label) {
+  const st = _docSort[tab];
+  const fl = st.by === key ? (st.dir === 1 ? ' ▲' : ' ▼') : '';
+  return `<th onclick="docOrdenar('${tab}','${key}')" style="cursor:pointer;user-select:none;white-space:nowrap;" title="Ordenar por ${label}">${label}${fl}</th>`;
+}
+_DOC_RENDERS.fac = () => renderFacturas();
+_DOC_RENDERS.rec = () => renderRecibos();
+_DOC_RENDERS.vac = () => renderVacaciones();
+_DOC_RENDERS.tes = () => renderTesoreria();
+
 function renderFacturas() {
   const anio = document.getElementById('fac-anio').value;
   const cuentaId = document.getElementById('fac-cuenta').value;
@@ -605,6 +659,12 @@ function renderFacturas() {
   if (cuentaId) filtrados = filtrados.filter(f => f.cuenta_id === parseInt(cuentaId));
   if (estado === 'controlado') filtrados = filtrados.filter(f => f.controlado);
   else if (estado === 'pendiente') filtrados = filtrados.filter(f => !f.controlado);
+
+  const _ctFac = Object.fromEntries(_cuentas.map(c => [c.id, c]));
+  const facGet = { fecha: f => f.fecha || '', caja: f => (_ctFac[f.cuenta_id] || {}).nombre || '',
+    importe: f => Number(f.importe || 0), descripcion: f => f.descripcion || '',
+    cargado: f => f.cargado_por || '', envio: f => f.factura_enviada_at || '', control: f => f.controlado ? 1 : 0 };
+  filtrados = docAplicar('fac', filtrados, facGet);
 
   document.getElementById('cnt-facturas').textContent = _facturas.length;
   const ctrl = filtrados.filter(f => f.controlado).length;
@@ -638,8 +698,8 @@ function renderFacturas() {
   document.getElementById('fac-body').innerHTML = `
     <table>
       <thead><tr>
-        <th>Fecha</th><th>Caja</th><th>Importe</th><th>Descripción</th>
-        <th>Cargado por</th><th>Factura</th><th>Envío</th><th>Control</th>
+        ${docTh('fac','fecha','Fecha')}${docTh('fac','caja','Caja')}${docTh('fac','importe','Importe')}${docTh('fac','descripcion','Descripción')}
+        ${docTh('fac','cargado','Cargado por')}<th>Factura</th>${docTh('fac','envio','Envío')}${docTh('fac','control','Control')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -655,6 +715,13 @@ function renderRecibos() {
   if (empId) filtrados = filtrados.filter(r => r.empleado_id === parseInt(empId));
   if (estado === 'firmado') filtrados = filtrados.filter(r => !!r.pdf_firmado_at);
   else if (estado === 'pendiente') filtrados = filtrados.filter(r => !r.pdf_firmado_at);
+
+  const _empRec = Object.fromEntries(_empleados.map(e => [e.id, e]));
+  const recGet = { empleada: r => (_empRec[r.empleado_id] || {}).nombre_completo || '',
+    local: r => (_empRec[r.empleado_id] || {}).local || '', periodo: r => r.periodo || '',
+    neto: r => Number(r.recibo_neto || 0), estado: r => r.pdf_firmado_at ? 1 : 0,
+    firma: r => r.pdf_firmado_at || '', control: r => r.controlado ? 1 : 0 };
+  filtrados = docAplicar('rec', filtrados, recGet);
 
   document.getElementById('cnt-recibos').textContent = _recibos.length;
   const firmados = filtrados.filter(r => r.pdf_firmado_at).length;
@@ -695,8 +762,8 @@ function renderRecibos() {
   document.getElementById('rec-body').innerHTML = `
     <table>
       <thead><tr>
-        <th>Empleada</th><th>Local</th><th>Período</th><th>Neto</th>
-        <th>Estado</th><th>Fecha firma</th><th>Origen</th><th>Control</th>
+        ${docTh('rec','empleada','Empleada')}${docTh('rec','local','Local')}${docTh('rec','periodo','Período')}${docTh('rec','neto','Neto')}
+        ${docTh('rec','estado','Estado')}${docTh('rec','firma','Fecha firma')}<th>Origen</th>${docTh('rec','control','Control')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -716,6 +783,13 @@ function renderVacaciones() {
   if (empId) filtrados = filtrados.filter(v => v.empleado_id === parseInt(empId));
   if (estado === 'firmado') filtrados = filtrados.filter(v => !!v.documento_firmado_at);
   else if (estado === 'pendiente') filtrados = filtrados.filter(v => !v.documento_firmado_at);
+
+  const _empVac = Object.fromEntries(_empleados.map(e => [e.id, e]));
+  const vacGet = { empleada: v => (_empVac[v.empleado_id] || {}).nombre_completo || '',
+    local: v => (_empVac[v.empleado_id] || {}).local || '', periodo: v => v.fecha_desde || '',
+    dias: v => Number(v.dias || 0), tipo: v => v.tipo_solicitud || '', estado: v => v.documento_firmado_at ? 1 : 0,
+    firma: v => v.documento_firmado_at || '', control: v => v.controlado ? 1 : 0 };
+  filtrados = docAplicar('vac', filtrados, vacGet);
 
   // El badge del tab cuenta solo las no-rechazadas (las que SÍ requieren firma)
   document.getElementById('cnt-vacaciones').textContent =
@@ -762,8 +836,8 @@ function renderVacaciones() {
   document.getElementById('vac-body').innerHTML = `
     <table>
       <thead><tr>
-        <th>Empleada</th><th>Local</th><th>Período</th><th>Días</th>
-        <th>Tipo</th><th>Estado</th><th>Fecha firma</th><th>Control</th>
+        ${docTh('vac','empleada','Empleada')}${docTh('vac','local','Local')}${docTh('vac','periodo','Período')}${docTh('vac','dias','Días')}
+        ${docTh('vac','tipo','Tipo')}${docTh('vac','estado','Estado')}${docTh('vac','firma','Fecha firma')}${docTh('vac','control','Control')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -782,6 +856,13 @@ function renderTesoreria() {
   if (cuentaId) filtrados = filtrados.filter(t => t.cuenta_id === parseInt(cuentaId));
   if (estado === 'firmado') filtrados = filtrados.filter(t => !!t.firmado_at);
   else if (estado === 'pendiente') filtrados = filtrados.filter(t => !t.firmado_at);
+
+  const _ctTes = Object.fromEntries(_cuentas.map(c => [c.id, c]));
+  const tesGet = { fecha: t => t.fecha || '', codigo: t => t.codigo_seguimiento || '',
+    cuenta: t => (_ctTes[t.cuenta_id] || {}).nombre || '', importe: t => Number(t.importe || 0),
+    descripcion: t => t.descripcion || '', cargado: t => t.cargado_por || '',
+    estado: t => t.firmado_at ? 1 : 0, firma: t => t.firmado_at || '', control: t => t.controlado ? 1 : 0 };
+  filtrados = docAplicar('tes', filtrados, tesGet);
 
   document.getElementById('cnt-tesoreria').textContent = _tesoreria.length;
   const firmados = filtrados.filter(t => t.firmado_at).length;
@@ -823,8 +904,8 @@ function renderTesoreria() {
   document.getElementById('tes-body').innerHTML = `
     <table>
       <thead><tr>
-        <th>Fecha</th><th>Código</th><th>Cuenta</th><th>Importe</th>
-        <th>Descripción</th><th>Cargado por</th><th>Estado</th><th>Fecha firma</th><th>Control</th>
+        ${docTh('tes','fecha','Fecha')}${docTh('tes','codigo','Código')}${docTh('tes','cuenta','Cuenta')}${docTh('tes','importe','Importe')}
+        ${docTh('tes','descripcion','Descripción')}${docTh('tes','cargado','Cargado por')}${docTh('tes','estado','Estado')}${docTh('tes','firma','Fecha firma')}${docTh('tes','control','Control')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;

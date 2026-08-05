@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v12-bifurcacion-permisos';
+const CACHE_VERSION = 'docs-v13-busqueda-orden';
 const CACHE_ASSETS = [
   './',
   './index.html',
