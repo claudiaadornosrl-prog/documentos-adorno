@@ -8,6 +8,12 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E📂%3C/text%3E%3C/svg%3E">
 <style>
+@font-face {
+  font-family: 'URW Gothic';
+  src: url('fonts/URWGothic-Book.ttf') format('truetype');
+  font-weight: 300 700;
+  font-display: swap;
+}
   :root {
     --primary: #1e40af;
     --primary-dark: #1e3a8a;
@@ -26,7 +32,7 @@
   }
   * { box-sizing: border-box; }
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: 'URW Gothic', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     margin: 0; background: #f8fafc; color: var(--text);
   }
   /* Login */
@@ -742,7 +748,7 @@ function renderRecibos() {
     const url = pathToSharepointUrl(r.pdf_url_firmado);
     const firmado = !!r.pdf_firmado_at;
     const chip = firmado
-      ? `<span class="chip green">✅ Guardado</span>`
+      ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma (mal firmada / hoja equivocada) y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('recibo', ${r.id})">↩</button>`
       : `<span class="chip amber">⏳ Sin firma</span>`;
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
@@ -812,7 +818,7 @@ function renderVacaciones() {
     const url = pathToSharepointUrl(v.documento_firmado_path);
     const firmado = !!v.documento_firmado_at;
     let chip;
-    if (firmado) chip = `<span class="chip green">✅ Guardado</span>`;
+    if (firmado) chip = `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('vacaciones', ${v.id})">↩</button>`;
     else if (v.estado === 'rechazada') chip = `<span class="chip red">❌ Rechazada</span>`;
     else if (v.estado === 'aprobada')  chip = `<span class="chip amber">⏳ Sin firma</span>`;
     else chip = `<span class="chip gray">${escHtml(v.estado)}</span>`;
@@ -883,7 +889,7 @@ function renderTesoreria() {
     const url = pathToSharepointUrl(t.pdf_path);
     const firmado = !!t.firmado_at;
     const chip = firmado
-      ? `<span class="chip green">✅ Guardado</span>`
+      ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">↩</button>`
       : `<span class="chip amber">⏳ Sin firma</span>`;
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
@@ -917,6 +923,18 @@ function renderTesoreria() {
 // ═══════════════════════════════════════════════════════════════════════
 // Helpers UI
 // ═══════════════════════════════════════════════════════════════════════
+// (5-ago) Rechazar una firma: vuelve a "sin firmar", limpia el control y
+// le llega push a la encargada del local para que la rehagan.
+async function docRechazarFirma(tipo, id) {
+  const motivo = prompt('¿Por qué se rechaza esta firma?\n(el motivo le llega a la encargada del local para rehacerla)');
+  if (motivo === null) return;
+  if (!confirm('El documento vuelve a "Sin firma" y se le avisa al local. ¿Confirmás?')) return;
+  const { data, error } = await sb.rpc('doc_rechazar_firma', { p_tipo: tipo, p_id: id, p_motivo: motivo || '' });
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  toast('✍ Firma rechazada — se avisó a ' + ((data && data.local) || 'el local') + ' para rehacerla');
+  cargarTodo();
+}
+
 function empty(msg) {
   return `<div class="empty"><div class="emoji">📭</div>${escHtml(msg)}</div>`;
 }

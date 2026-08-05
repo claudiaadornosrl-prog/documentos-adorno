@@ -3,8 +3,9 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v15-definitivos';
+const CACHE_VERSION = 'docs-v16-rechazo-firma-tipografia';
 const CACHE_ASSETS = [
+  'fonts/URWGothic-Book.ttf',
   './',
   './index.html',
   './manifest.webmanifest',
