@@ -534,7 +534,7 @@ async function cargarRecibos() {
   // aparecían los 20 de julio sin firmar, sin que existiera todavía el recibo.
   const { data, error } = await sb.from('rrhh_liquidacion')
     .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at')
-    .neq('estado', 'borrador')
+    .eq('tipo', 'definitivo')  // (5-ago) definitivos, sin importar estado del workflow
     .gte('periodo', RECIBOS_DESDE)  // solo documentos del sistema nuevo
     .order('periodo', { ascending: false })
     .order('empleado_id');

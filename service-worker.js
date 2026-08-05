@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v14-corte-mayo2026';
+const CACHE_VERSION = 'docs-v15-definitivos';
 const CACHE_ASSETS = [
   './',
   './index.html',
