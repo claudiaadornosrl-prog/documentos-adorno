@@ -602,7 +602,7 @@ function populateFiltros(prefix, fechas) {
 let _facturas = [];
 async function cargarFacturas() {
   const { data, error } = await sb.from('tesoreria_movimientos')
-    .select('id, fecha, importe, descripcion, cuenta_id, cargado_por, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at')
+    .select('id, fecha, importe, descripcion, cuenta_id, cargado_por, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at, observacion_control, observacion_control_por, observacion_control_at')
     .eq('respaldo_tipo', 'factura')
     .gte('fecha', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha', { ascending: false });
@@ -692,10 +692,13 @@ function renderFacturas() {
       ? `<span class="chip green" title="Enviada a administración el ${new Date(f.factura_enviada_at).toLocaleDateString('es-AR')}">📬 Enviada</span>`
       : `<span class="chip amber">⏳ Por enviar</span>`;
     const tieneArchivo = !!f.factura_path;
+    const obs = f.observacion_control
+      ? ` <span class="chip amber" title="Observado por ${escHtml(f.observacion_control_por || '')}: ${escHtml(f.observacion_control)}">⚠ Observada</span> <button class="chip" style="cursor:pointer;background:#f3f4f6;border:none;" title="Levantar la observación" onclick="event.stopPropagation();docObservarMov(${f.id}, true)">✓</button>`
+      : ` <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Observar: el importe no coincide con la factura o el PDF está mal — le llega el aviso al local para corregirlo o borrarlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">⚠</button>`;
     return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
       <td>${fmtFecha(f.fecha)}</td>
       <td>${escHtml(ct.nombre || '?')}</td>
-      <td style="color:var(--red);">${fmtMoneda(f.importe)}</td>
+      <td style="color:var(--red);">${fmtMoneda(f.importe)}${obs}</td>
       <td>${escHtml(f.descripcion || '')}</td>
       <td>${escHtml(f.cargado_por || '')}</td>
       <td>${tieneArchivo ? '📎 Ver factura' : '<span title="Imagen borrada a los 30 días del envío — el respaldo está en el archivero">🗄 Archivada</span>'}</td>
@@ -925,6 +928,23 @@ function renderTesoreria() {
 // ═══════════════════════════════════════════════════════════════════════
 // (5-ago) Rechazar una firma: vuelve a "sin firmar", limpia el control y
 // le llega push a la encargada del local para que la rehagan.
+// (5-ago) Observar un movimiento con factura mal cargado (importe distinto,
+// PDF equivocado): push al local para que lo corrija o lo borre y recargue.
+async function docObservarMov(id, levantar) {
+  let motivo = '';
+  if (levantar) {
+    if (!confirm('¿Levantar la observación de este movimiento?')) return;
+  } else {
+    motivo = prompt('¿Qué está mal en este movimiento?\n(ej: "el importe no coincide con la factura", "el PDF adjunto es de otra cosa")\nEl aviso le llega a la encargada del local.');
+    if (motivo === null) return;
+    if (!motivo.trim()) { toast('Escribí el motivo', 'error'); return; }
+  }
+  const { data, error } = await sb.rpc('doc_observar_mov', { p_id: id, p_motivo: motivo });
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  toast(levantar ? '✓ Observación levantada' : '⚠ Observado — se avisó al local para que lo corrija');
+  cargarTodo();
+}
+
 async function docRechazarFirma(tipo, id) {
   const motivo = prompt('¿Por qué se rechaza esta firma?\n(el motivo le llega a la encargada del local para rehacerla)');
   if (motivo === null) return;
