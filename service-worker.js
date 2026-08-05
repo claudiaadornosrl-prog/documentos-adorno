@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v13-busqueda-orden';
+const CACHE_VERSION = 'docs-v14-corte-mayo2026';
 const CACHE_ASSETS = [
   './',
   './index.html',

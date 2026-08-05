@@ -309,7 +309,7 @@ const SIN_RECIBOS_EMAILS = [
   'rivera.analia.leon@gmail.com',
 ];
 // El sistema nuevo arranca en mayo 2026 — documentos anteriores no se listan.
-const RECIBOS_DESDE = '2026-05-01';
+const RECIBOS_DESDE = '2026-05-01';  // inicio del sistema nuevo — aplica a TODOS los tabs
 function puedeVerRecibos() {
   return !SIN_RECIBOS_EMAILS.includes((session?.email || '').toLowerCase());
 }
@@ -547,6 +547,7 @@ async function cargarRecibos() {
 async function cargarVacaciones() {
   const { data, error } = await sb.from('rrhh_vacaciones_movimientos')
     .select('id, empleado_id, fecha_desde, fecha_hasta, dias, estado, tipo_solicitud, documento_firmado_at, documento_firmado_path, documento_firmado_origen, fecha_solicitud, controlado, controlado_por, controlado_at')
+    .gte('fecha_desde', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha_desde', { ascending: false });
   if (error) { console.error('vacaciones:', error); return; }
   _vacaciones = data || [];
@@ -558,6 +559,7 @@ async function cargarTesoreria() {
   const { data, error } = await sb.from('tesoreria_movimientos')
     .select('id, codigo_seguimiento, fecha, importe, descripcion, cuenta_id, cargado_por, cargado_at, requiere_firma, firmado_at, firmado_origen, pdf_path, controlado, controlado_por, controlado_at')
     .eq('requiere_firma', true)  // solo egresos que requieren firma
+    .gte('fecha', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha', { ascending: false });
   if (error) { console.error('tesoreria:', error); return; }
   _tesoreria = data || [];
@@ -596,6 +598,7 @@ async function cargarFacturas() {
   const { data, error } = await sb.from('tesoreria_movimientos')
     .select('id, fecha, importe, descripcion, cuenta_id, cargado_por, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at')
     .eq('respaldo_tipo', 'factura')
+    .gte('fecha', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha', { ascending: false });
   if (error) { console.error('facturas:', error); return; }
   _facturas = data || [];
