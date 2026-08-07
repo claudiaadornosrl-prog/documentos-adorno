@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v20-icono-pwa';
+const CACHE_VERSION = 'docs-v21-boton-hub';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
