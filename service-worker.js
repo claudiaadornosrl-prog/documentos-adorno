@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v22-hub-mono';
+const CACHE_VERSION = 'docs-v22-hub-mono-caps';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
