@@ -605,7 +605,7 @@ let _facturas = [];
 async function cargarFacturas() {
   const { data, error } = await sb.from('tesoreria_movimientos')
     .select('id, fecha, importe, descripcion, cuenta_id, cargado_por, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at, observacion_control, observacion_control_por, observacion_control_at')
-    .eq('respaldo_tipo', 'factura')
+    .in('respaldo_tipo', ['factura','deposito'])   // (26-ago) tambien los depositos bancarios
     .gte('fecha', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha', { ascending: false });
   if (error) { console.error('facturas:', error); return; }
