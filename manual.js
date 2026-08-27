@@ -15,6 +15,7 @@ function _manualSecciones() {
       desc: 'Control de las firmas de los recibos mensuales y SAC, local por local.',
       pasos: [
         'Filtrás por año y período; cada fila muestra si el recibo ya volvió firmado (✓) o sigue pendiente.',
+        'Los SAC aparecen como fila propia con la etiqueta violeta "SAC", con su firma y su control independientes del recibo mensual.',
         'El sistema procesa los escaneos solo, leyendo el código QR del recibo — si figura sin firma, el escaneo no llegó o el QR no se pudo leer.',
         '"Ver PDF" abre el recibo firmado archivado en OneDrive.',
         '↩ Rechazar firma (si un escaneo quedó mal): vuelve el recibo a "sin firma" y le avisa a las encargadas del local.',

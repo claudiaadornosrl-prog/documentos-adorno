@@ -541,13 +541,32 @@ async function cargarRecibos() {
   // la proforma del mes en curso y no corresponde que se vean acá — antes
   // aparecían los 20 de julio sin firmar, sin que existiera todavía el recibo.
   const { data, error } = await sb.from('rrhh_liquidacion')
-    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at')
+    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at, '
+          + 'sac_recibo_neto, sac_pdf_firmado_at, sac_pdf_firmado_path, sac_controlado, sac_controlado_por, sac_controlado_at')
     .eq('tipo', 'definitivo')  // (5-ago) definitivos, sin importar estado del workflow
     .gte('periodo', RECIBOS_DESDE)  // solo documentos del sistema nuevo
     .order('periodo', { ascending: false })
     .order('empleado_id');
   if (error) { console.error('recibos:', error); toast('Error cargando recibos: ' + error.message, 'error'); return; }
-  _recibos = data || [];
+  // (27-ago) El SAC vive en la MISMA fila de la liquidación (columnas sac_*)
+  // pero es un documento firmable aparte — Marisa no lo veía para controlar.
+  // Cada SAC liquidado se expande como fila propia con esSac=true, mapeando
+  // sus columnas a las genéricas que usa el render; el control usa tipo 'sac'.
+  _recibos = [];
+  (data || []).forEach(r => {
+    _recibos.push(r);
+    if (Number(r.sac_recibo_neto || 0) > 0) {
+      _recibos.push({
+        ...r, esSac: true,
+        recibo_neto: r.sac_recibo_neto,
+        pdf_firmado_at: r.sac_pdf_firmado_at,
+        pdf_url_firmado: r.sac_pdf_firmado_path,
+        controlado: r.sac_controlado,
+        controlado_por: r.sac_controlado_por,
+        controlado_at: r.sac_controlado_at,
+      });
+    }
+  });
   populateFiltros('rec', _recibos.map(r => r.periodo));
   renderRecibos();
 }
@@ -752,8 +771,9 @@ function renderRecibos() {
     const emp = empMap[r.empleado_id] || {};
     const url = pathToSharepointUrl(r.pdf_url_firmado);
     const firmado = !!r.pdf_firmado_at;
+    const tipoDoc = r.esSac ? 'sac' : 'recibo';
     const chip = firmado
-      ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma (mal firmada / hoja equivocada) y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('recibo', ${r.id})">↩</button>`
+      ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma (mal firmada / hoja equivocada) y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('${tipoDoc}', ${r.id})">↩</button>`
       : `<span class="chip amber">⏳ Sin firma</span>`;
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
@@ -764,12 +784,12 @@ function renderRecibos() {
     return `<tr class="${cls}" ${onclick}>
       <td>${escHtml(emp.nombre_completo || '?')}</td>
       <td>${escHtml(emp.local || '')}</td>
-      <td>${fmtPeriodo(r.periodo)}</td>
+      <td>${fmtPeriodo(r.periodo)}${r.esSac ? ' <span class="chip" style="background:#ede9fe;color:#5b21b6;">SAC</span>' : ''}</td>
       <td>${fmtMoneda(r.recibo_neto)}</td>
       <td>${chip}</td>
       <td>${firmado ? fmtFecha(r.pdf_firmado_at) : '—'}</td>
       <td>${escHtml(r.pdf_url_firmado ? (url ? '🔗 SharePoint' : '⚠️ legacy') : '—')}</td>
-      <td>${chipControl('recibo', r.id, r.controlado, r.controlado_por, r.controlado_at)}</td>
+      <td>${chipControl(tipoDoc, r.id, r.controlado, r.controlado_por, r.controlado_at)}</td>
     </tr>`;
   }).join('');
 
@@ -999,6 +1019,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=1"></script>
+<script src="manual.js?v=2"></script>
 </body>
 </html>
