@@ -544,7 +544,7 @@ async function cargarRecibos() {
     .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at, '
           + 'sac_recibo_neto, sac_pdf_firmado_at, sac_pdf_firmado_path, sac_controlado, sac_controlado_por, sac_controlado_at')
     .eq('tipo', 'definitivo')  // (5-ago) definitivos, sin importar estado del workflow
-    .gte('periodo', RECIBOS_DESDE)  // solo documentos del sistema nuevo
+    .gte('periodo', '2026-06-01')  // (27-ago, JP) recibos de sueldo desde JUNIO: mayo fue transición y no se controla acá
     .order('periodo', { ascending: false })
     .order('empleado_id');
   if (error) { console.error('recibos:', error); toast('Error cargando recibos: ' + error.message, 'error'); return; }
