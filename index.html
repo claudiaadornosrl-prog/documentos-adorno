@@ -651,7 +651,7 @@ let _depositos = [];
 // respaldos que se eligen al cargar en Tesorería: recibo / factura / depósito).
 async function cargarFacturas() {
   const { data, error } = await sb.from('tesoreria_movimientos')
-    .select('id, fecha, importe, descripcion, categoria_id, cuenta_id, cargado_por, respaldo_tipo, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at, observacion_control, observacion_control_por, observacion_control_at')
+    .select('id, fecha, importe, descripcion, categoria_id, cuenta_id, cargado_por, respaldo_tipo, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at, observacion_control, observacion_control_por, observacion_control_at, archivo_item_id, archivo_carpeta, archivo_nombre, respaldo_rechazado_at, respaldo_rechazo_motivo')
     .in('respaldo_tipo', ['factura','deposito'])
     .gte('fecha', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha', { ascending: false });
@@ -746,13 +746,26 @@ function renderRespaldo(pre) {
   const ctMap = Object.fromEntries(_cuentas.map(c => [c.id, c]));
   const rows = filtrados.map(f => {
     const ct = ctMap[f.cuenta_id] || {};
-    const enviada = f.factura_enviada_at
-      ? `<span class="chip green" title="Enviada a administración el ${new Date(f.factura_enviada_at).toLocaleDateString('es-AR')}">📬 Enviada</span>`
-      : `<span class="chip amber">⏳ Por enviar</span>`;
+    // (7-sep) etapa del archivo en OneDrive (por ID, sobrevive renombres/mudanzas)
+    let enviada;
+    if (f.respaldo_rechazado_at && !f.factura_path) {
+      enviada = `<span class="chip" style="background:#fee2e2;color:#991b1b;" title="${escHtml(f.respaldo_rechazo_motivo || '')}">↩ Rechazado · esperando archivo nuevo</span>`;
+    } else if (f.archivo_item_id) {
+      const carp = (f.archivo_carpeta || '').split('/').filter(Boolean);
+      const etapa = carp.length ? carp[carp.length - 1] : '?';
+      const esEntrada = /SIN CONTABILIZAR/i.test(etapa);
+      const esFinal = /FACTURAS|RETIROS/i.test(f.archivo_carpeta || '');
+      enviada = `<span class="chip ${esFinal ? 'green' : (esEntrada ? 'amber' : '')}" style="${esFinal||esEntrada ? '' : 'background:#dbeafe;color:#1e40af;'}" title="${escHtml((f.archivo_carpeta || '') + ' / ' + (f.archivo_nombre || ''))}">📁 ${escHtml(etapa)}</span>`;
+    } else if (f.factura_path) {
+      enviada = `<span class="chip amber" title="Todavía no se subió al OneDrive (lo hace el VPS cada hora)">⏳ Por archivar</span>`;
+    } else {
+      enviada = `<span class="chip" title="Sin archivo">—</span>`;
+    }
     const tieneArchivo = !!f.factura_path;
     const obs = f.observacion_control
       ? ` <span class="chip amber" title="Observado por ${escHtml(f.observacion_control_por || '')}: ${escHtml(f.observacion_control)}">⚠ Observada</span> <button class="chip" style="cursor:pointer;background:#f3f4f6;border:none;" title="Levantar la observación" onclick="event.stopPropagation();docObservarMov(${f.id}, true)">✓</button>`
-      : ` <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Observar: el importe no coincide con la factura o el PDF está mal — le llega el aviso al local para corregirlo o borrarlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">⚠</button>`;
+      : ` <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Observar: el importe no coincide con la factura — le llega el aviso al local para corregirlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">⚠</button>`
+        + (tieneArchivo ? ` <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar el ARCHIVO (foto equivocada): se borra del OneDrive y el local tiene que volver a adjuntarlo" onclick="event.stopPropagation();docRechazarRespaldo(${f.id})">🗑</button>` : '');
     return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
       <td>${fmtFecha(f.fecha)}</td>
       <td>${escHtml(ct.nombre || '?')}</td>
@@ -760,7 +773,7 @@ function renderRespaldo(pre) {
       <td>${escHtml(_categorias[f.categoria_id] || '')}</td>
       <td>${escHtml(f.descripcion || '')}</td>
       <td>${escHtml(f.cargado_por || '')}</td>
-      <td>${tieneArchivo ? (esDep ? '📎 Ver comprobante' : '📎 Ver factura') : '<span title="Imagen borrada a los 30 días del envío — el respaldo está en el archivero">🗄 Archivada</span>'}</td>
+      <td>${tieneArchivo ? (esDep ? '📎 Ver comprobante' : '📎 Ver factura') : '<span title="Sin archivo (rechazado o purgado por el circuito viejo)">—</span>'}</td>
       <td>${enviada}</td>
       <td style="white-space:nowrap;">${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}${obs}</td>
     </tr>`;
@@ -770,7 +783,7 @@ function renderRespaldo(pre) {
     <table>
       <thead><tr>
         ${docTh(pre,'fecha','Fecha')}${docTh(pre,'caja','Caja')}${docTh(pre,'importe','Importe')}${docTh(pre,'concepto','Concepto')}${docTh(pre,'descripcion','Descripción')}
-        ${docTh(pre,'cargado','Cargado por')}<th>${esDep ? 'Comprobante' : 'Factura'}</th>${docTh(pre,'envio','Envío')}${docTh(pre,'control','Control')}
+        ${docTh(pre,'cargado','Cargado por')}<th>${esDep ? 'Comprobante' : 'Factura'}</th>${docTh(pre,'envio','Etapa')}${docTh(pre,'control','Control')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -992,6 +1005,22 @@ function renderTesoreria() {
 // le llega push a la encargada del local para que la rehagan.
 // (5-ago) Observar un movimiento con factura mal cargado (importe distinto,
 // PDF equivocado): push al local para que lo corrija o lo borre y recargue.
+// (7-sep) Rechazar el archivo de una factura/depósito: foto equivocada. Se
+// borra del OneDrive por ID (papelera) y el local vuelve a adjuntar.
+async function docRechazarRespaldo(id) {
+  const motivo = prompt('¿Por qué se rechaza el archivo?\n(ej: "la foto no es la factura", "está ilegible")\nSe borra del OneDrive y el local tiene que volver a adjuntarlo.');
+  if (!motivo) return;
+  let { data, error } = await sb.rpc('doc_rechazar_respaldo', { p_id: id, p_motivo: motivo, p_confirmar_movido: false });
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  if (data && data.necesita_confirmacion) {
+    if (!confirm(`⚠ ${data.msg}\n\nArchivo: ${data.nombre || ''}\n\n¿Borrarlo IGUAL y pedir uno nuevo al local?`)) return;
+    ({ data, error } = await sb.rpc('doc_rechazar_respaldo', { p_id: id, p_motivo: motivo, p_confirmar_movido: true }));
+    if (error) { toast('Error: ' + error.message, 'error'); return; }
+  }
+  toast('🗑 Archivo rechazado — se borra del OneDrive en unos minutos y se avisó a ' + ((data && data.local) || 'el local'));
+  cargarTodo();
+}
+
 async function docObservarMov(id, levantar) {
   let motivo = '';
   if (levantar) {
@@ -1059,6 +1088,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=3"></script>
+<script src="manual.js?v=4"></script>
 </body>
 </html>

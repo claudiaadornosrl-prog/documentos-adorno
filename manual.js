@@ -47,7 +47,8 @@ function _manualSecciones() {
         'Controlá que el importe de la factura coincida con el egreso cargado.',
         'La columna de envío muestra si la factura ya viajó por mail a administración (va sola, cada hora).',
         '⚠ Observar: si algo está mal, marcalo — le llega el aviso al local para corregir; al editar el movimiento la observación se levanta sola.',
-        'Las fotos controladas se purgan a los 30 días (las no controladas se conservan).',
+        'La factura ya NO viaja por mail: el sistema la sube sola al OneDrive, a CONTABILIZAR / SIN CONTABILIZAR, con el código MOV en el nombre. Administración la contabiliza, la renombra (G PROVEEDOR FC 0001-00001234) y la archiva como siempre: el link del movimiento la sigue por su ID aunque cambie de nombre o carpeta. La columna Etapa muestra en qué carpeta está.',
+        '🗑 Rechazar archivo (foto equivocada, ilegible): se borra del OneDrive (papelera) y le llega un aviso al local para volver a adjuntarlo desde Tesorería. Si el archivo ya salió de SIN CONTABILIZAR, pide confirmación extra porque puede haber un asiento que revisar.',
       ],
     },
     {
@@ -56,6 +57,7 @@ function _manualSecciones() {
       pasos: [
         'Mismo funcionamiento que Facturas: "Ver comprobante" abre la foto, se controla con ☑ y se puede ⚠ observar.',
         'Es el tercer tipo de respaldo que se elige al cargar en Tesorería: recibo firmado / factura / depósito bancario.',
+        'El comprobante se guarda solo en el OneDrive, en <año>/RECIBOS Y RETIROS LOCALES/<MES> (junto a los recibos de caja), y el link apunta a ese archivo.',
       ],
     },
     {

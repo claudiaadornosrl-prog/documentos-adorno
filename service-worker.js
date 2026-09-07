@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v27-depositos-concepto';
+const CACHE_VERSION = 'docs-v28-archivo-por-id';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
