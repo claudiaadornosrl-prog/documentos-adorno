@@ -205,6 +205,7 @@
     <button id="tab-vacaciones" onclick="switchTab('vacaciones')">🌴 Vacaciones <span class="count" id="cnt-vacaciones">…</span></button>
     <button id="tab-tesoreria"  onclick="switchTab('tesoreria')">💵 Recibos <span class="count" id="cnt-tesoreria">…</span></button>
     <button id="tab-facturas"   onclick="switchTab('facturas')">🧺 Facturas <span class="count" id="cnt-facturas">…</span></button>
+    <button id="tab-depositos"  onclick="switchTab('depositos')">🏦 Depósitos <span class="count" id="cnt-depositos">…</span></button>
   </nav>
 
   <main>
@@ -291,6 +292,26 @@
       </div>
       <div id="fac-body"></div>
     </section>
+    <!-- ─── Depósitos bancarios (comprobante adjunto) ─── -->
+    <section id="content-depositos" class="tab-content">
+      <div class="filters">
+        <label>Año</label>
+        <select id="dep-anio" onchange="renderDepositos()"></select>
+        <label>Cuenta</label>
+        <select id="dep-cuenta" onchange="renderDepositos()"><option value="">Todas</option></select>
+        <label>Estado</label>
+        <select id="dep-estado" onchange="renderDepositos()">
+          <option value="">Todos</option>
+          <option value="controlado">☑ Controladas</option>
+          <option value="pendiente">⬜ Sin controlar</option>
+        </select>
+        <input type="search" id="dep-buscar" placeholder="🔎 Buscar…"
+          style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;min-width:170px;"
+          oninput="docBuscar('dep', this.value, renderDepositos)">
+        <div class="stat" id="dep-stat"></div>
+      </div>
+      <div id="dep-body"></div>
+    </section>
   </main>
 </div>
 
@@ -348,6 +369,7 @@ const VPS_PREFIX = '/opt/adorno/recibos_archivados/';
 let session = null;
 let _empleados = [];   // cache
 let _cuentas = [];     // cache
+let _categorias = {};  // id → nombre (concepto)
 let _recibos = [];     // cache
 let _vacaciones = [];  // cache
 let _tesoreria = [];   // cache
@@ -520,6 +542,9 @@ async function cargarTodo() {
       .select('id, nombre, tipo, local')
       .order('nombre');
     _cuentas = cts || [];
+    // (7-sep, JP) Concepto del movimiento = categoría de Tesorería (Retiro JP, Sueldos…)
+    const { data: cats } = await sb.from('tesoreria_categorias').select('id, nombre');
+    _categorias = Object.fromEntries((cats || []).map(c => [c.id, c.nombre]));
 
     await detectarAdmin();
     await Promise.all([
@@ -584,7 +609,7 @@ async function cargarVacaciones() {
 
 async function cargarTesoreria() {
   const { data, error } = await sb.from('tesoreria_movimientos')
-    .select('id, codigo_seguimiento, fecha, importe, descripcion, cuenta_id, cargado_por, cargado_at, requiere_firma, firmado_at, firmado_origen, pdf_path, controlado, controlado_por, controlado_at')
+    .select('id, codigo_seguimiento, fecha, importe, descripcion, categoria_id, cuenta_id, cargado_por, cargado_at, requiere_firma, firmado_at, firmado_origen, pdf_path, controlado, controlado_por, controlado_at, firma_rechazada_at')
     .eq('requiere_firma', true)  // solo egresos que requieren firma
     .gte('fecha', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha', { ascending: false });
@@ -621,25 +646,32 @@ function populateFiltros(prefix, fechas) {
 // Render: Recibos
 // ═══════════════════════════════════════════════════════════════════════
 let _facturas = [];
+let _depositos = [];
+// (7-sep, JP) Facturas y Depósitos bancarios en apartados separados (los mismos
+// respaldos que se eligen al cargar en Tesorería: recibo / factura / depósito).
 async function cargarFacturas() {
   const { data, error } = await sb.from('tesoreria_movimientos')
-    .select('id, fecha, importe, descripcion, cuenta_id, cargado_por, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at, observacion_control, observacion_control_por, observacion_control_at')
-    .in('respaldo_tipo', ['factura','deposito'])   // (26-ago) tambien los depositos bancarios
+    .select('id, fecha, importe, descripcion, categoria_id, cuenta_id, cargado_por, respaldo_tipo, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at, observacion_control, observacion_control_por, observacion_control_at')
+    .in('respaldo_tipo', ['factura','deposito'])
     .gte('fecha', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha', { ascending: false });
   if (error) { console.error('facturas:', error); return; }
-  _facturas = data || [];
-  populateFiltros('fac', _facturas.map(f => f.fecha));
-  const sel = document.getElementById('fac-cuenta');
-  sel.innerHTML = '<option value="">Todas</option>' +
-    _cuentas.filter(c => _facturas.some(f => f.cuenta_id === c.id))
-      .map(c => `<option value="${c.id}">${escHtml(c.nombre)}</option>`).join('');
+  _facturas  = (data || []).filter(f => f.respaldo_tipo !== 'deposito');
+  _depositos = (data || []).filter(f => f.respaldo_tipo === 'deposito');
+  for (const [pre, lista] of [['fac', _facturas], ['dep', _depositos]]) {
+    populateFiltros(pre, lista.map(f => f.fecha));
+    const sel = document.getElementById(pre + '-cuenta');
+    sel.innerHTML = '<option value="">Todas</option>' +
+      _cuentas.filter(c => lista.some(f => f.cuenta_id === c.id))
+        .map(c => `<option value="${c.id}">${escHtml(c.nombre)}</option>`).join('');
+  }
   renderFacturas();
+  renderDepositos();
 }
 
 // ═══ (5-ago, JP) Búsqueda + orden por columna en TODAS las tablas ═══
-const _docSort = { fac:{by:null,dir:1}, rec:{by:null,dir:1}, vac:{by:null,dir:1}, tes:{by:null,dir:1} };
-const _docBusq = { fac:'', rec:'', vac:'', tes:'' };
+const _docSort = { fac:{by:null,dir:1}, dep:{by:null,dir:1}, rec:{by:null,dir:1}, vac:{by:null,dir:1}, tes:{by:null,dir:1} };
+const _docBusq = { fac:'', dep:'', rec:'', vac:'', tes:'' };
 function docBuscar(tab, val, renderFn) {
   _docBusq[tab] = val;
   clearTimeout(window._docBuscarT);
@@ -675,16 +707,21 @@ function docTh(tab, key, label) {
   return `<th onclick="docOrdenar('${tab}','${key}')" style="cursor:pointer;user-select:none;white-space:nowrap;" title="Ordenar por ${label}">${label}${fl}</th>`;
 }
 _DOC_RENDERS.fac = () => renderFacturas();
+_DOC_RENDERS.dep = () => renderDepositos();
 _DOC_RENDERS.rec = () => renderRecibos();
 _DOC_RENDERS.vac = () => renderVacaciones();
 _DOC_RENDERS.tes = () => renderTesoreria();
 
-function renderFacturas() {
-  const anio = document.getElementById('fac-anio').value;
-  const cuentaId = document.getElementById('fac-cuenta').value;
-  const estado = document.getElementById('fac-estado').value;
+function renderFacturas() { renderRespaldo('fac'); }
+function renderDepositos() { renderRespaldo('dep'); }
+function renderRespaldo(pre) {
+  const esDep = pre === 'dep';
+  const anio = document.getElementById(pre + '-anio').value;
+  const cuentaId = document.getElementById(pre + '-cuenta').value;
+  const estado = document.getElementById(pre + '-estado').value;
+  const etiqueta = esDep ? 'depósitos' : 'facturas';
 
-  let filtrados = _facturas.slice();
+  let filtrados = (esDep ? _depositos : _facturas).slice();
   if (anio) filtrados = filtrados.filter(f => f.fecha && f.fecha.startsWith(anio));
   if (cuentaId) filtrados = filtrados.filter(f => f.cuenta_id === parseInt(cuentaId));
   if (estado === 'controlado') filtrados = filtrados.filter(f => f.controlado);
@@ -692,17 +729,17 @@ function renderFacturas() {
 
   const _ctFac = Object.fromEntries(_cuentas.map(c => [c.id, c]));
   const facGet = { fecha: f => f.fecha || '', caja: f => (_ctFac[f.cuenta_id] || {}).nombre || '',
-    importe: f => Number(f.importe || 0), descripcion: f => f.descripcion || '',
+    importe: f => Number(f.importe || 0), concepto: f => _categorias[f.categoria_id] || '', descripcion: f => f.descripcion || '',
     cargado: f => f.cargado_por || '', envio: f => f.factura_enviada_at || '', control: f => f.controlado ? 1 : 0 };
-  filtrados = docAplicar('fac', filtrados, facGet);
+  filtrados = docAplicar(pre, filtrados, facGet);
 
-  document.getElementById('cnt-facturas').textContent = _facturas.length;
+  document.getElementById(esDep ? 'cnt-depositos' : 'cnt-facturas').textContent = (esDep ? _depositos : _facturas).length;
   const ctrl = filtrados.filter(f => f.controlado).length;
-  document.getElementById('fac-stat').innerHTML =
-    `<strong>${filtrados.length}</strong> facturas · <strong>${ctrl}</strong> controladas · <strong>${filtrados.length - ctrl}</strong> pendientes`;
+  document.getElementById(pre + '-stat').innerHTML =
+    `<strong>${filtrados.length}</strong> ${etiqueta} · <strong>${ctrl}</strong> controlad${esDep ? 'os' : 'as'} · <strong>${filtrados.length - ctrl}</strong> pendientes`;
 
   if (filtrados.length === 0) {
-    document.getElementById('fac-body').innerHTML = empty('No hay facturas con esos filtros');
+    document.getElementById(pre + '-body').innerHTML = empty(`No hay ${etiqueta} con esos filtros`);
     return;
   }
 
@@ -719,20 +756,21 @@ function renderFacturas() {
     return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
       <td>${fmtFecha(f.fecha)}</td>
       <td>${escHtml(ct.nombre || '?')}</td>
-      <td style="color:var(--red);">${fmtMoneda(f.importe)}</td>
+      <td style="color:${f.importe < 0 ? 'var(--red)' : 'var(--green)'};">${fmtMoneda(f.importe)}</td>
+      <td>${escHtml(_categorias[f.categoria_id] || '')}</td>
       <td>${escHtml(f.descripcion || '')}</td>
       <td>${escHtml(f.cargado_por || '')}</td>
-      <td>${tieneArchivo ? '📎 Ver factura' : '<span title="Imagen borrada a los 30 días del envío — el respaldo está en el archivero">🗄 Archivada</span>'}</td>
+      <td>${tieneArchivo ? (esDep ? '📎 Ver comprobante' : '📎 Ver factura') : '<span title="Imagen borrada a los 30 días del envío — el respaldo está en el archivero">🗄 Archivada</span>'}</td>
       <td>${enviada}</td>
       <td style="white-space:nowrap;">${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}${obs}</td>
     </tr>`;
   }).join('');
 
-  document.getElementById('fac-body').innerHTML = `
+  document.getElementById(pre + '-body').innerHTML = `
     <table>
       <thead><tr>
-        ${docTh('fac','fecha','Fecha')}${docTh('fac','caja','Caja')}${docTh('fac','importe','Importe')}${docTh('fac','descripcion','Descripción')}
-        ${docTh('fac','cargado','Cargado por')}<th>Factura</th>${docTh('fac','envio','Envío')}${docTh('fac','control','Control')}
+        ${docTh(pre,'fecha','Fecha')}${docTh(pre,'caja','Caja')}${docTh(pre,'importe','Importe')}${docTh(pre,'concepto','Concepto')}${docTh(pre,'descripcion','Descripción')}
+        ${docTh(pre,'cargado','Cargado por')}<th>${esDep ? 'Comprobante' : 'Factura'}</th>${docTh(pre,'envio','Envío')}${docTh(pre,'control','Control')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -894,6 +932,7 @@ function renderTesoreria() {
   const _ctTes = Object.fromEntries(_cuentas.map(c => [c.id, c]));
   const tesGet = { fecha: t => t.fecha || '', codigo: t => t.codigo_seguimiento || '',
     cuenta: t => (_ctTes[t.cuenta_id] || {}).nombre || '', importe: t => Number(t.importe || 0),
+    concepto: t => _categorias[t.categoria_id] || '',
     descripcion: t => t.descripcion || '', cargado: t => t.cargado_por || '',
     estado: t => t.firmado_at ? 1 : 0, firma: t => t.firmado_at || '', control: t => t.controlado ? 1 : 0 };
   filtrados = docAplicar('tes', filtrados, tesGet);
@@ -915,7 +954,7 @@ function renderTesoreria() {
     const firmado = !!t.firmado_at;
     const chip = firmado
       ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">↩</button>`
-      : `<span class="chip amber">⏳ Sin firma</span>`;
+      : (t.firma_rechazada_at ? `<span class="chip amber" title="Firma rechazada el ${fmtFecha(t.firma_rechazada_at)} — el PDF se borra del OneDrive y hay que rehacerla">↩ Rechazada</span>` : `<span class="chip amber">⏳ Sin firma</span>`);
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
       : (firmado
@@ -927,6 +966,7 @@ function renderTesoreria() {
       <td>${escHtml(t.codigo_seguimiento || '')}</td>
       <td>${escHtml(ct.nombre || '?')}</td>
       <td style="color:${t.importe < 0 ? 'var(--red)' : 'var(--green)'};">${fmtMoneda(t.importe)}</td>
+      <td>${escHtml(_categorias[t.categoria_id] || '')}</td>
       <td>${escHtml(t.descripcion || '')}</td>
       <td>${escHtml(t.cargado_por || '')}</td>
       <td>${chip}</td>
@@ -939,7 +979,7 @@ function renderTesoreria() {
     <table>
       <thead><tr>
         ${docTh('tes','fecha','Fecha')}${docTh('tes','codigo','Código')}${docTh('tes','cuenta','Cuenta')}${docTh('tes','importe','Importe')}
-        ${docTh('tes','descripcion','Descripción')}${docTh('tes','cargado','Cargado por')}${docTh('tes','estado','Estado')}${docTh('tes','firma','Fecha firma')}${docTh('tes','control','Control')}
+        ${docTh('tes','concepto','Concepto')}${docTh('tes','descripcion','Descripción')}${docTh('tes','cargado','Cargado por')}${docTh('tes','estado','Estado')}${docTh('tes','firma','Fecha firma')}${docTh('tes','control','Control')}
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
@@ -973,7 +1013,7 @@ async function docRechazarFirma(tipo, id) {
   if (!confirm('El documento vuelve a "Sin firma" y se le avisa al local. ¿Confirmás?')) return;
   const { data, error } = await sb.rpc('doc_rechazar_firma', { p_tipo: tipo, p_id: id, p_motivo: motivo || '' });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
-  toast('✍ Firma rechazada — se avisó a ' + ((data && data.local) || 'el local') + ' para rehacerla');
+  toast('✍ Firma rechazada — se avisó a ' + ((data && data.local) || 'el local') + ' para rehacerla' + ((data && data.borrar_path) ? '. El PDF se borra del OneDrive en unos minutos.' : ''));
   cargarTodo();
 }
 
@@ -1019,6 +1059,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=2"></script>
+<script src="manual.js?v=3"></script>
 </body>
 </html>

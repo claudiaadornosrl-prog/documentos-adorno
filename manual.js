@@ -18,7 +18,7 @@ function _manualSecciones() {
         'Los SAC aparecen como fila propia con la etiqueta violeta "SAC", con su firma y su control independientes del recibo mensual.',
         'El sistema procesa los escaneos solo, leyendo el código QR del recibo — si figura sin firma, el escaneo no llegó o el QR no se pudo leer.',
         '"Ver PDF" abre el recibo firmado archivado en OneDrive.',
-        '↩ Rechazar firma (si un escaneo quedó mal): vuelve el recibo a "sin firma" y le avisa a las encargadas del local.',
+        '↩ Rechazar firma (si un escaneo quedó mal): vuelve el recibo a "sin firma", le avisa a las encargadas del local y el PDF equivocado se BORRA del OneDrive en unos minutos (así no vuelve a figurar como guardado). El escaneo nuevo entra normal.',
       ],
     },
     {
@@ -35,6 +35,8 @@ function _manualSecciones() {
       pasos: [
         'Cada egreso de caja con respaldo "recibo" aparece acá con su estado de firma.',
         'Los escaneos entran por el mismo circuito de mail + QR que los recibos de sueldo.',
+        'La columna Concepto es la categoría del movimiento en Tesorería (Retiro Juan Pablo, Retiro Claudia, Sueldos…).',
+        'Una firma rechazada se ve como "↩ Rechazada" hasta que llega el escaneo nuevo.',
       ],
     },
     {
@@ -49,7 +51,15 @@ function _manualSecciones() {
       ],
     },
     {
-      icon: '☑', titulo: 'Columna Control (las 4 pestañas)',
+      icon: '🏦', titulo: 'Depósitos',
+      desc: 'Depósitos bancarios cargados desde Tesorería con el comprobante adjunto.',
+      pasos: [
+        'Mismo funcionamiento que Facturas: "Ver comprobante" abre la foto, se controla con ☑ y se puede ⚠ observar.',
+        'Es el tercer tipo de respaldo que se elige al cargar en Tesorería: recibo firmado / factura / depósito bancario.',
+      ],
+    },
+    {
+      icon: '☑', titulo: 'Columna Control (todas las pestañas)',
       desc: 'El tilde de "esto ya lo revisé" que comparte todo el equipo.',
       pasos: [
         'Cualquier usuaria puede marcar ☑ un documento como controlado — queda registrado quién y cuándo.',
