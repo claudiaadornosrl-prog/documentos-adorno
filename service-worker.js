@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v29-iconos-v2';
+const CACHE_VERSION = 'docs-v30-sso';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
