@@ -28,7 +28,8 @@ function _manualSecciones() {
         'Los SAC aparecen como fila propia con la etiqueta violeta "SAC", con su firma y su control independientes del recibo mensual.',
         'El sistema procesa los escaneos solo, leyendo el código QR del recibo — si figura sin firma, el escaneo no llegó o el QR no se pudo leer.',
         '"Ver PDF" abre el recibo firmado archivado en OneDrive.',
-        '↩ Rechazar firma (si un escaneo quedó mal): vuelve el recibo a "sin firma", le avisa a las encargadas del local y el PDF equivocado se BORRA del OneDrive en unos minutos (así no vuelve a figurar como guardado). El escaneo nuevo entra normal.',
+        '↩ Rechazar firma (si un escaneo quedó mal): vuelve el recibo a "sin firma", le avisa a las encargadas del local y el PDF equivocado se BORRA del OneDrive y del archivero en unos minutos.',
+        'No hay que hacer nada más: cuando el local mande el escaneo corregido entra solo, aunque el archivo se llame igual que el rechazado. Antes el documento se volvía a marcar como guardado con el PDF viejo — eso quedó arreglado el 16-sep.',
       ],
     },
     {
@@ -37,6 +38,7 @@ function _manualSecciones() {
       pasos: [
         'Misma lógica que los recibos: cada notificación debe volver firmada y escaneada.',
         'El QR del PDF identifica el documento automáticamente al procesarlo.',
+        'Si rechazás una firma queda "↩ Rechazada" hasta que llegue el escaneo corregido, que se toma solo aunque se llame igual que el rechazado.',
       ],
     },
     {
@@ -46,7 +48,7 @@ function _manualSecciones() {
         'Cada egreso de caja con respaldo "recibo" aparece acá con su estado de firma.',
         'Los escaneos entran por el mismo circuito de mail + QR que los recibos de sueldo.',
         'La columna Concepto es la categoría del movimiento en Tesorería (Retiro Juan Pablo, Retiro Claudia, Sueldos…).',
-        'Una firma rechazada se ve como "↩ Rechazada" hasta que llega el escaneo nuevo.',
+        'Una firma rechazada se ve como "↩ Rechazada" y sigue así hasta que llegue el escaneo corregido — el PDF viejo ya no la puede volver a marcar como firmada.',
       ],
     },
     {

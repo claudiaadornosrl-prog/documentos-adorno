@@ -643,8 +643,8 @@ async function cargarRecibos() {
   // la proforma del mes en curso y no corresponde que se vean acá — antes
   // aparecían los 20 de julio sin firmar, sin que existiera todavía el recibo.
   const { data, error } = await sb.from('rrhh_liquidacion')
-    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at, '
-          + 'sac_recibo_neto, sac_pdf_firmado_at, sac_pdf_firmado_path, sac_controlado, sac_controlado_por, sac_controlado_at')
+    .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at, firma_rechazada_at, '
+          + 'sac_recibo_neto, sac_pdf_firmado_at, sac_pdf_firmado_path, sac_controlado, sac_controlado_por, sac_controlado_at, sac_firma_rechazada_at')
     .eq('tipo', 'definitivo')  // (5-ago) definitivos, sin importar estado del workflow
     .gte('periodo', '2026-06-01')  // (27-ago, JP) recibos de sueldo desde JUNIO: mayo fue transición y no se controla acá
     .order('periodo', { ascending: false })
@@ -663,6 +663,7 @@ async function cargarRecibos() {
         recibo_neto: r.sac_recibo_neto,
         pdf_firmado_at: r.sac_pdf_firmado_at,
         pdf_url_firmado: r.sac_pdf_firmado_path,
+        firma_rechazada_at: r.sac_firma_rechazada_at,
         controlado: r.sac_controlado,
         controlado_por: r.sac_controlado_por,
         controlado_at: r.sac_controlado_at,
@@ -675,7 +676,7 @@ async function cargarRecibos() {
 
 async function cargarVacaciones() {
   const { data, error } = await sb.from('rrhh_vacaciones_movimientos')
-    .select('id, empleado_id, fecha_desde, fecha_hasta, dias, estado, tipo_solicitud, documento_firmado_at, documento_firmado_path, documento_firmado_origen, fecha_solicitud, controlado, controlado_por, controlado_at')
+    .select('id, empleado_id, fecha_desde, fecha_hasta, dias, estado, tipo_solicitud, documento_firmado_at, documento_firmado_path, documento_firmado_origen, fecha_solicitud, controlado, controlado_por, controlado_at, firma_rechazada_at')
     .gte('fecha_desde', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha_desde', { ascending: false });
   if (error) { console.error('vacaciones:', error); return; }
@@ -902,7 +903,7 @@ function renderRecibos() {
     const tipoDoc = r.esSac ? 'sac' : 'recibo';
     const chip = firmado
       ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma (mal firmada / hoja equivocada) y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('${tipoDoc}', ${r.id})">↩</button>`
-      : `<span class="chip amber">⏳ Sin firma</span>`;
+      : chipSinFirma(r.firma_rechazada_at);
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
       : (firmado
@@ -972,8 +973,8 @@ function renderVacaciones() {
     const firmado = !!v.documento_firmado_at;
     let chip;
     if (firmado) chip = `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('vacaciones', ${v.id})">↩</button>`;
-    else if (v.estado === 'rechazada') chip = `<span class="chip red">❌ Rechazada</span>`;
-    else if (v.estado === 'aprobada')  chip = `<span class="chip amber">⏳ Sin firma</span>`;
+    else if (v.estado === 'rechazada') chip = `<span class="chip red">❌ Rechazada</span>`;   // el PEDIDO de vacaciones, no la firma
+    else if (v.estado === 'aprobada')  chip = chipSinFirma(v.firma_rechazada_at);
     else chip = `<span class="chip gray">${escHtml(v.estado)}</span>`;
 
     const onclick = (firmado && url)
@@ -1044,7 +1045,7 @@ function renderTesoreria() {
     const firmado = !!t.firmado_at;
     const chip = firmado
       ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">↩</button>`
-      : (t.firma_rechazada_at ? `<span class="chip amber" title="Firma rechazada el ${fmtFecha(t.firma_rechazada_at)} — el PDF se borra del OneDrive y hay que rehacerla">↩ Rechazada</span>` : `<span class="chip amber">⏳ Sin firma</span>`);
+      : chipSinFirma(t.firma_rechazada_at);
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
       : (firmado
@@ -1113,6 +1114,15 @@ async function docObservarMov(id, levantar) {
   cargarTodo();
 }
 
+// Chip de "sin firma": si el documento fue RECHAZADO lo dice.
+// Antes el rechazo de un recibo o de unas vacaciones volvía a verse como un
+// "⏳ Sin firma" cualquiera y no quedaba rastro en pantalla de que alguien lo
+// había rechazado — parte de por qué el problema tardó en verse.
+function chipSinFirma(rechazadaAt) {
+  if (!rechazadaAt) return `<span class="chip amber">⏳ Sin firma</span>`;
+  return `<span class="chip" style="background:#fee2e2;color:#991b1b;" title="Rechazada el ${fmtFecha(rechazadaAt)} — el PDF viejo se borró del OneDrive y del archivero. Cuando llegue el escaneo corregido se toma solo, aunque se llame igual.">↩ Rechazada</span>`;
+}
+
 async function docRechazarFirma(tipo, id) {
   const motivo = prompt('¿Por qué se rechaza esta firma?\n(el motivo le llega a la encargada del local para rehacerla)');
   if (motivo === null) return;
@@ -1165,6 +1175,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=5"></script>
+<script src="manual.js?v=7"></script>
 </body>
 </html>
