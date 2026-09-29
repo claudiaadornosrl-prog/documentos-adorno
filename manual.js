@@ -59,7 +59,7 @@ function _manualSecciones() {
         'Controlá que el importe de la factura coincida con el egreso cargado.',
         'La columna de envío muestra si la factura ya viajó por mail a administración (va sola, cada hora).',
         '⚠ Observar: si algo está mal, marcalo — le llega el aviso al local para corregir; al editar el movimiento la observación se levanta sola.',
-        'La factura ya NO viaja por mail: el sistema la sube sola al OneDrive, a CONTABILIZAR / SIN CONTABILIZAR, con el código MOV en el nombre. Administración la contabiliza, la renombra (G PROVEEDOR FC 0001-00001234) y la archiva como siempre: el link del movimiento la sigue por su ID aunque cambie de nombre o carpeta. La columna Etapa muestra en qué carpeta está.',
+        'La factura ya NO viaja por mail: el sistema la sube sola al OneDrive, a CONTABILIZAR / 1 - SIN CONTABILIZAR, con el código MOV en el nombre. Administración la contabiliza, la renombra (G PROVEEDOR FC 0001-00001234) y la archiva como siempre: el link del movimiento la sigue por su ID aunque cambie de nombre o carpeta. La columna Etapa muestra en qué carpeta está.',
         '🗑 Rechazar archivo (foto equivocada, ilegible): se borra del OneDrive (papelera) y le llega un aviso al local para volver a adjuntarlo desde Tesorería. Si el archivo ya salió de SIN CONTABILIZAR, pide confirmación extra porque puede haber un asiento que revisar.',
       ],
     },
