@@ -362,6 +362,7 @@ window.ADORNO_SSO = (function () {
           <option value="">Todos</option>
           <option value="controlado">☑ Controladas</option>
           <option value="pendiente">⬜ Sin controlar</option>
+          <option value="observado">⚠ Observadas</option>
         </select>
         <input type="search" id="fac-buscar" placeholder="🔎 Buscar…"
           style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;min-width:170px;"
@@ -382,6 +383,7 @@ window.ADORNO_SSO = (function () {
           <option value="">Todos</option>
           <option value="controlado">☑ Controladas</option>
           <option value="pendiente">⬜ Sin controlar</option>
+          <option value="observado">⚠ Observadas</option>
         </select>
         <input type="search" id="dep-buscar" placeholder="🔎 Buscar…"
           style="padding:6px 10px;border:1px solid var(--border);border-radius:8px;min-width:170px;"
@@ -871,6 +873,7 @@ function renderRespaldo(pre) {
   if (cuentaId) filtrados = filtrados.filter(f => f.cuenta_id === parseInt(cuentaId));
   if (estado === 'controlado') filtrados = filtrados.filter(f => f.controlado);
   else if (estado === 'pendiente') filtrados = filtrados.filter(f => !f.controlado);
+  else if (estado === 'observado') filtrados = filtrados.filter(f => !!f.observacion_control);
 
   const _ctFac = Object.fromEntries(_cuentas.map(c => [c.id, c]));
   const facGet = { fecha: f => f.fecha || '', caja: f => (_ctFac[f.cuenta_id] || {}).nombre || '',
@@ -1273,6 +1276,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=18"></script>
+<script src="manual.js?v=19"></script>
 </body>
 </html>
