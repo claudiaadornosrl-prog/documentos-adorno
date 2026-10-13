@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v41-contador-pendientes';
+const CACHE_VERSION = 'docs-v42-facturas-iconos';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',

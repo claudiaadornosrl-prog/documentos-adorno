@@ -604,6 +604,11 @@ const _ICO = {
   billete: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>',
   compensa: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
   punto: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/></svg>',
+  carpeta: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+  archivo: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>',
+  alerta: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  tacho: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+  clip: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
 };
 // (13-oct, JP) solo el ícono; el significado aparece al pasar el mouse
 function chipControl(tipo, id, controlado, por, at) {
@@ -882,34 +887,40 @@ function renderRespaldo(pre) {
   const rows = filtrados.map(f => {
     const ct = ctMap[f.cuenta_id] || {};
     // (7-sep) etapa del archivo en OneDrive (por ID, sobrevive renombres/mudanzas)
+    // (13-oct, JP) etapa solo como ícono; el detalle aparece al pasar el mouse
     let enviada;
     if (f.respaldo_rechazado_at && !f.factura_path) {
-      enviada = `<span class="chip" style="background:#fee2e2;color:#991b1b;" title="${escHtml(f.respaldo_rechazo_motivo || '')}">↩ Rechazado · esperando archivo nuevo</span>`;
+      enviada = `<span class="ctl rojo" title="Archivo rechazado, esperando uno nuevo. Motivo: ${escHtml(f.respaldo_rechazo_motivo || '')}">${_ICO.deshacer}</span>`;
     } else if (f.archivo_item_id) {
       const carp = (f.archivo_carpeta || '').split('/').filter(Boolean);
       const etapa = carp.length ? carp[carp.length - 1] : '?';
       const esEntrada = /SIN CONTABILIZAR/i.test(etapa);
       const esFinal = /FACTURAS|RETIROS/i.test(f.archivo_carpeta || '');
-      enviada = `<span class="chip ${esFinal ? 'green' : (esEntrada ? 'amber' : '')}" style="${esFinal||esEntrada ? '' : 'background:#dbeafe;color:#1e40af;'}" title="${escHtml((f.archivo_carpeta || '') + ' / ' + (f.archivo_nombre || ''))}">📁 ${escHtml(etapa)}</span>`;
+      const txt = esFinal ? 'Archivada (etapa final)' : (esEntrada ? 'Sin contabilizar: todavía la tiene que contabilizar el estudio' : 'En proceso');
+      enviada = `<span class="ctl ${esFinal ? 'verde' : (esEntrada ? 'ambar' : 'azul')}" title="${escHtml(txt + ' — ' + etapa + '\n' + (f.archivo_carpeta || '') + ' / ' + (f.archivo_nombre || ''))}">${esFinal ? _ICO.archivo : _ICO.carpeta}</span>`;
     } else if (f.factura_path) {
-      enviada = `<span class="chip amber" title="Todavía no se subió al OneDrive (lo hace el VPS cada hora)">⏳ Por archivar</span>`;
+      enviada = `<span class="ctl ambar" title="Por archivar: todavía no se subió al OneDrive (lo hace el VPS cada hora)">${_ICO.reloj}</span>`;
     } else {
-      enviada = `<span class="chip" title="Sin archivo">—</span>`;
+      enviada = `<span class="ctl" title="Sin archivo">${_ICO.punto}</span>`;
     }
     const tieneArchivo = !!f.factura_path;
     const obs = f.observacion_control
-      ? ` <span class="chip amber" title="Observado por ${escHtml(f.observacion_control_por || '')}: ${escHtml(f.observacion_control)}">⚠ Observada</span> <button class="chip" style="cursor:pointer;background:#f3f4f6;border:none;" title="Levantar la observación" onclick="event.stopPropagation();docObservarMov(${f.id}, true)">✓</button>`
-      : ` <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Observar: el importe no coincide con la factura — le llega el aviso al local para corregirlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">⚠</button>`
-        + (tieneArchivo ? ` <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar el ARCHIVO (foto equivocada): se borra del OneDrive y el local tiene que volver a adjuntarlo" onclick="event.stopPropagation();docRechazarRespaldo(${f.id})">🗑</button>` : '');
+      ? `<span class="ctl ambar" title="Observada por ${escHtml(f.observacion_control_por || '')}: ${escHtml(f.observacion_control)}">${_ICO.alerta}</span><span class="ctl rechazo" title="Levantar la observación" onclick="event.stopPropagation();docObservarMov(${f.id}, true)">${_ICO.ok}</span>`
+      : `<span class="ctl rechazo" title="Observar: el importe no coincide con la factura — le llega el aviso al local para corregirlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">${_ICO.alerta}</span>`
+        + (tieneArchivo ? `<span class="ctl rechazo" title="Rechazar el ARCHIVO (foto equivocada): se borra del OneDrive y el local tiene que volver a adjuntarlo" onclick="event.stopPropagation();docRechazarRespaldo(${f.id})">${_ICO.tacho}</span>` : '');
+    const cuenta = String(ct.nombre || '?').replace(/^caja\s+/i, '');
+    const concepto = String(_categorias[f.categoria_id] || '');
+    const desc = String(f.descripcion || '');
+    const quien = String(f.cargado_por || '').split('@')[0];
     return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
       <td>${fmtFecha(f.fecha)}</td>
-      <td>${escHtml(ct.nombre || '?')}</td>
-      <td style="color:${f.importe < 0 ? 'var(--red)' : 'var(--green)'};">${fmtMoneda(f.importe)}</td>
-      <td>${escHtml(_categorias[f.categoria_id] || '')}</td>
-      <td>${escHtml(f.descripcion || '')}</td>
-      <td>${escHtml(f.cargado_por || '')}</td>
-      <td>${tieneArchivo ? (esDep ? '📎 Ver comprobante' : '📎 Ver factura') : '<span title="Sin archivo (rechazado o purgado por el circuito viejo)">—</span>'}</td>
-      <td>${enviada}</td>
+      <td>${escHtml(cuenta)}</td>
+      <td style="color:${f.importe < 0 ? 'var(--red)' : 'var(--green)'};white-space:nowrap">${fmtMoneda(f.importe)}</td>
+      <td class="desc-corta" style="max-width:150px" title="${escHtml(concepto)}">${escHtml(concepto)}</td>
+      <td class="desc-corta" title="${escHtml(desc)}">${escHtml(desc)}</td>
+      <td title="${escHtml(f.cargado_por || '')}">${escHtml(quien)}</td>
+      <td style="text-align:center">${tieneArchivo ? `<a href="${escHtml(f.factura_path)}" target="_blank" class="doc-link" title="${esDep ? 'Abrir el comprobante' : 'Abrir la factura'}" onclick="event.stopPropagation()">${_ICO.clip}</a>` : `<span title="Sin archivo (rechazado o purgado por el circuito viejo)">—</span>`}</td>
+      <td style="text-align:center">${enviada}</td>
       <td style="white-space:nowrap;">${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}${obs}</td>
     </tr>`;
   }).join('');
@@ -1249,6 +1260,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=15"></script>
+<script src="manual.js?v=16"></script>
 </body>
 </html>
