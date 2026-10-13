@@ -164,18 +164,21 @@ window.ADORNO_SSO = (function () {
   }
 
   main { padding: 20px; max-width: 1400px; margin: 0 auto; }
+  /* (13-oct, JP) filtros compactos en un solo renglón */
   .filters {
     background: white; border: 1px solid var(--border); border-radius: 10px;
-    padding: 12px 16px; margin-bottom: 16px;
-    display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+    padding: 6px 10px; margin-bottom: 12px;
+    display: flex; gap: 6px; align-items: center; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none;
   }
-  .filters label { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .filters::-webkit-scrollbar { display: none; }
+  .filters label { font-size: 11px; color: var(--muted); font-weight: 600; white-space: nowrap; margin-left: 4px; }
   .filters select, .filters input {
     border: 1px solid var(--border); border-radius: 6px;
-    padding: 6px 10px; font-size: 14px; background: white;
+    padding: 4px 6px; font-size: 13px; background: white; max-width: 180px;
   }
+  .filters input[type=search] { min-width: 120px !important; width: 140px; padding: 4px 8px !important; flex: 1; }
   .filters .stat {
-    margin-left: auto; font-size: 13px; color: var(--muted);
+    margin-left: auto; font-size: 12px; color: var(--muted); white-space: nowrap; padding-left: 8px;
   }
   .filters .stat strong { color: var(--text); }
 
@@ -847,7 +850,7 @@ function renderRespaldo(pre) {
   document.getElementById(esDep ? 'cnt-depositos' : 'cnt-facturas').textContent = (esDep ? _depositos : _facturas).length;
   const ctrl = filtrados.filter(f => f.controlado).length;
   document.getElementById(pre + '-stat').innerHTML =
-    `<strong>${filtrados.length}</strong> ${etiqueta} · <strong>${ctrl}</strong> controlad${esDep ? 'os' : 'as'} · <strong>${filtrados.length - ctrl}</strong> pendientes`;
+    `<span title="${filtrados.length} ${etiqueta} · ${ctrl} controlad${esDep ? 'os' : 'as'} · ${filtrados.length - ctrl} pendientes"><strong>${filtrados.length}</strong> · ☑ <strong>${ctrl}</strong> · ⬜ <strong>${filtrados.length - ctrl}</strong></span>`;
 
   if (filtrados.length === 0) {
     document.getElementById(pre + '-body').innerHTML = empty(`No hay ${etiqueta} con esos filtros`);
@@ -921,7 +924,7 @@ function renderRecibos() {
   document.getElementById('cnt-recibos').textContent = _recibos.length;
   const firmados = filtrados.filter(r => r.pdf_firmado_at).length;
   document.getElementById('rec-stat').innerHTML =
-    `<strong>${filtrados.length}</strong> recibos · <strong>${firmados}</strong> firmados · <strong>${filtrados.length - firmados}</strong> pendientes`;
+    `<span title="${filtrados.length} recibos · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`;
 
   if (filtrados.length === 0) {
     document.getElementById('rec-body').innerHTML = empty('No hay recibos con esos filtros');
@@ -992,7 +995,7 @@ function renderVacaciones() {
     _vacaciones.filter(v => v.estado !== 'rechazada').length;
   const firmados = filtrados.filter(v => v.documento_firmado_at).length;
   document.getElementById('vac-stat').innerHTML =
-    `<strong>${filtrados.length}</strong> registros · <strong>${firmados}</strong> firmados · <strong>${filtrados.length - firmados}</strong> pendientes`;
+    `<span title="${filtrados.length} registros · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`;
 
   if (filtrados.length === 0) {
     document.getElementById('vac-body').innerHTML = empty('No hay vacaciones con esos filtros');
@@ -1064,7 +1067,7 @@ function renderTesoreria() {
   document.getElementById('cnt-tesoreria').textContent = _tesoreria.length;
   const firmados = filtrados.filter(t => t.firmado_at).length;
   document.getElementById('tes-stat').innerHTML =
-    `<strong>${filtrados.length}</strong> movimientos · <strong>${firmados}</strong> firmados · <strong>${filtrados.length - firmados}</strong> pendientes`;
+    `<span title="${filtrados.length} movimientos · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`;
 
   if (filtrados.length === 0) {
     document.getElementById('tes-body').innerHTML = empty('No hay movimientos con esos filtros');
@@ -1211,6 +1214,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=11"></script>
+<script src="manual.js?v=12"></script>
 </body>
 </html>
