@@ -208,6 +208,9 @@ window.ADORNO_SSO = (function () {
   .ctl { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; border-radius: 8px; color: #94a3b8; }
   .ctl:hover { background: var(--gray-light); color: var(--text); }
   .ctl.ok { color: var(--green); }
+  .ctl.rojo { color: var(--red); } .ctl.ambar { color: var(--amber); } .ctl.azul { color: var(--primary); }
+  .ctl.verde { color: var(--green); } .ctl.violeta { color: #7c3aed; }
+  .ctl.rechazo { color: #cbd5e1; cursor: pointer; } .ctl.rechazo:hover { color: var(--red); background: var(--red-bg); }
   .doc-link { display: inline-flex; color: var(--primary); padding: 4px; border-radius: 6px; }
   .doc-link:hover { background: var(--primary-bg); }
   .chip {
@@ -584,6 +587,16 @@ async function detectarAdmin() {
 }
 
 // ── Tilde de control: cualquiera lo pone; SOLO el admin lo puede sacar ──
+const _ICO = {
+  ok: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  reloj: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  cruz: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+  deshacer: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>',
+  sol: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+  billete: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>',
+  compensa: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>',
+  punto: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/></svg>',
+};
 // (13-oct, JP) solo el ícono; el significado aparece al pasar el mouse
 function chipControl(tipo, id, controlado, por, at) {
   const ok = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/></svg>';
@@ -1007,11 +1020,18 @@ function renderVacaciones() {
     const emp = empMap[v.empleado_id] || {};
     const url = pathToSharepointUrl(v.documento_firmado_path);
     const firmado = !!v.documento_firmado_at;
+    // (13-oct, JP) estado y tipo solo como ícono; el significado aparece al pasar el mouse
     let chip;
-    if (firmado) chip = `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('vacaciones', ${v.id})">↩</button>`;
-    else if (v.estado === 'rechazada') chip = `<span class="chip red">❌ Rechazada</span>`;   // el PEDIDO de vacaciones, no la firma
-    else if (v.estado === 'aprobada')  chip = chipSinFirma(v.firma_rechazada_at);
-    else chip = `<span class="chip gray">${escHtml(v.estado)}</span>`;
+    if (firmado) chip = `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span><span class="ctl rechazo" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('vacaciones', ${v.id})">${_ICO.deshacer}</span>`;
+    else if (v.estado === 'rechazada') chip = `<span class="ctl rojo" title="Pedido de vacaciones rechazado (no es la firma)">${_ICO.cruz}</span>`;
+    else if (v.estado === 'aprobada')  chip = v.firma_rechazada_at
+      ? `<span class="ctl rojo" title="Firma rechazada el ${fmtFecha(v.firma_rechazada_at)} — el PDF viejo se borró del OneDrive y del archivero. Cuando llegue el escaneo corregido se toma solo, aunque se llame igual.">${_ICO.deshacer}</span>`
+      : `<span class="ctl ambar" title="Sin firma: todavía no llegó el documento firmado">${_ICO.reloj}</span>`;
+    else chip = `<span class="ctl" title="${escHtml(v.estado)}">${_ICO.punto}</span>`;
+    const tipoIco = v.tipo_solicitud === 'toma' ? `<span class="ctl azul" title="Toma de vacaciones: días que se toma">${_ICO.sol}</span>`
+      : v.tipo_solicitud === 'pago' ? `<span class="ctl verde" title="Pago de vacaciones: días no tomados que se pagan">${_ICO.billete}</span>`
+      : v.tipo_solicitud === 'compensacion' ? `<span class="ctl violeta" title="Compensación: días a favor por francos o feriados trabajados">${_ICO.compensa}</span>`
+      : `<span class="ctl" title="${escHtml(v.tipo_solicitud || '')}">${_ICO.punto}</span>`;
 
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
@@ -1025,8 +1045,8 @@ function renderVacaciones() {
       <td>${escHtml(emp.local || '')}</td>
       <td>${fmtFecha(v.fecha_desde)} → ${fmtFecha(v.fecha_hasta)}</td>
       <td>${v.dias || '—'}</td>
-      <td>${escHtml(v.tipo_solicitud || '')}</td>
-      <td>${chip}</td>
+      <td style="text-align:center">${tipoIco}</td>
+      <td style="text-align:center;white-space:nowrap">${chip}</td>
       <td>${firmado ? fmtFecha(v.documento_firmado_at) : '—'}</td>
       <td>${chipControl('vacaciones', v.id, v.controlado, v.controlado_por, v.controlado_at)}</td>
     </tr>`;
@@ -1214,6 +1234,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=12"></script>
+<script src="manual.js?v=13"></script>
 </body>
 </html>
