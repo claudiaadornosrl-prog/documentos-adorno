@@ -992,7 +992,7 @@ function renderRecibos() {
       <td>${escHtml(emp.nombre_completo || '?')}</td>
       <td>${escHtml(emp.local || '')}</td>
       <td>${fmtPeriodo(r.periodo)}${r.esSac ? ' <span class="chip" style="background:#ede9fe;color:#5b21b6;">SAC</span>' : ''}</td>
-      <td>${fmtMoneda(r.recibo_neto)}</td>
+      <td style="white-space:nowrap">${fmtMoneda(r.recibo_neto)}</td>
       <td style="text-align:center;white-space:nowrap">${chip}</td>
       <td>${firmado ? fmtFecha(r.pdf_firmado_at) : '—'}</td>
       <td style="text-align:center">${r.pdf_url_firmado ? (url ? `<a href="${url}" target="_blank" class="doc-link" title="Abrir el PDF en SharePoint" onclick="event.stopPropagation()"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></a>` : '<span title="Ruta vieja, no se puede abrir desde acá">⚠️</span>') : '—'}</td>
@@ -1278,6 +1278,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=20"></script>
+<script src="manual.js?v=21"></script>
 </body>
 </html>
