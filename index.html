@@ -201,8 +201,10 @@ window.ADORNO_SSO = (function () {
     position: sticky; top: 0;
   }
   tbody tr { transition: background 0.1s; }
+  /* (13-oct, JP) filas alternadas en azul clarito para seguir la lectura */
+  tbody tr:nth-child(even) { background: #eef3fb; }
   tbody tr.clickable { cursor: pointer; }
-  tbody tr.clickable:hover { background: var(--primary-bg); }
+  tbody tr.clickable:hover { background: #dbe7fa; }
   tbody tr.dim { color: var(--muted); }
 
   td.desc-corta { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1260,6 +1262,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=16"></script>
+<script src="manual.js?v=17"></script>
 </body>
 </html>
