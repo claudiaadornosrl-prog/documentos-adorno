@@ -202,6 +202,11 @@ window.ADORNO_SSO = (function () {
   tbody tr.clickable:hover { background: var(--primary-bg); }
   tbody tr.dim { color: var(--muted); }
 
+  .ctl { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; border-radius: 8px; color: #94a3b8; }
+  .ctl:hover { background: var(--gray-light); color: var(--text); }
+  .ctl.ok { color: var(--green); }
+  .doc-link { display: inline-flex; color: var(--primary); padding: 4px; border-radius: 6px; }
+  .doc-link:hover { background: var(--primary-bg); }
   .chip {
     display: inline-block; padding: 3px 10px; border-radius: 12px;
     font-size: 12px; font-weight: 600; white-space: nowrap;
@@ -576,17 +581,20 @@ async function detectarAdmin() {
 }
 
 // ── Tilde de control: cualquiera lo pone; SOLO el admin lo puede sacar ──
+// (13-oct, JP) solo el ícono; el significado aparece al pasar el mouse
 function chipControl(tipo, id, controlado, por, at) {
+  const ok = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/></svg>';
+  const vacio = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>';
   if (controlado) {
     const info = `Controlado por ${por || '?'} el ${at ? new Date(at).toLocaleDateString('es-AR') : '?'}`;
     if (esAdmin) {
-      return `<span class="chip green" style="cursor:pointer;" title="${escHtml(info)} — click para QUITAR (solo admin)"
-        onclick="event.stopPropagation();marcarControl('${tipo}', ${id}, false)">☑ Controlado</span>`;
+      return `<span class="ctl ok" style="cursor:pointer;" title="${escHtml(info)} — click para QUITAR (solo admin)"
+        onclick="event.stopPropagation();marcarControl('${tipo}', ${id}, false)">${ok}</span>`;
     }
-    return `<span class="chip green" title="${escHtml(info)}">☑ Controlado</span>`;
+    return `<span class="ctl ok" title="${escHtml(info)}">${ok}</span>`;
   }
-  return `<span class="chip gray" style="cursor:pointer;" title="Marcar como controlado (queda fijo)"
-    onclick="event.stopPropagation();marcarControl('${tipo}', ${id}, true)">⬜ Controlar</span>`;
+  return `<span class="ctl" style="cursor:pointer;" title="Sin controlar — click para marcar como controlado (queda fijo)"
+    onclick="event.stopPropagation();marcarControl('${tipo}', ${id}, true)">${vacio}</span>`;
 }
 
 async function marcarControl(tipo, id, valor) {
@@ -942,7 +950,7 @@ function renderRecibos() {
       <td>${fmtMoneda(r.recibo_neto)}</td>
       <td>${chip}</td>
       <td>${firmado ? fmtFecha(r.pdf_firmado_at) : '—'}</td>
-      <td>${escHtml(r.pdf_url_firmado ? (url ? '🔗 SharePoint' : '⚠️ legacy') : '—')}</td>
+      <td style="text-align:center">${r.pdf_url_firmado ? (url ? `<a href="${url}" target="_blank" class="doc-link" title="Abrir el PDF en SharePoint" onclick="event.stopPropagation()"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></a>` : '<span title="Ruta vieja, no se puede abrir desde acá">⚠️</span>') : '—'}</td>
       <td>${chipControl(tipoDoc, r.id, r.controlado, r.controlado_por, r.controlado_at)}</td>
     </tr>`;
   }).join('');
@@ -1203,6 +1211,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=10"></script>
+<script src="manual.js?v=11"></script>
 </body>
 </html>

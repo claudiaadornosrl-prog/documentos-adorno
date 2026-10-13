@@ -138,7 +138,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarManual
   const nav = document.querySelector('nav.tabs');
   if (nav) {
     const b = document.createElement('button');
-    b.textContent = '📖 Manual';
+    b.title = 'Manual';
+    b.innerHTML = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg><span class="lb">Manual</span>';
     b.onclick = () => abrirManual();
     nav.appendChild(b);
   }
