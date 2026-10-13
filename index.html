@@ -914,8 +914,7 @@ function renderRespaldo(pre) {
     const tieneArchivo = !!f.factura_path;
     const obs = f.observacion_control
       ? `<span class="ctl ambar" title="Observada por ${escHtml(f.observacion_control_por || '')}: ${escHtml(f.observacion_control)}">${_ICO.alerta}</span><span class="ctl rechazo" title="Levantar la observación" onclick="event.stopPropagation();docObservarMov(${f.id}, true)">${_ICO.ok}</span>`
-      : `<span class="ctl rechazo" title="Observar: el importe no coincide con la factura — le llega el aviso al local para corregirlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">${_ICO.alerta}</span>`
-        + (tieneArchivo ? `<span class="ctl rechazo" title="Rechazar el ARCHIVO (foto equivocada): se borra del OneDrive y el local tiene que volver a adjuntarlo" onclick="event.stopPropagation();docRechazarRespaldo(${f.id})">${_ICO.tacho}</span>` : '');
+      : `<span class="ctl rechazo" title="Observar: algo está mal (importe, concepto o el archivo adjunto) — le llega el aviso al local para corregirlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">${_ICO.alerta}</span>`;
     const cuenta = String(ct.nombre || '?').replace(/^caja\s+/i, '');
     const concepto = String(_categorias[f.categoria_id] || '');
     const desc = String(f.descripcion || '');
@@ -977,9 +976,12 @@ function renderRecibos() {
     const url = pathToSharepointUrl(r.pdf_url_firmado);
     const firmado = !!r.pdf_firmado_at;
     const tipoDoc = r.esSac ? 'sac' : 'recibo';
+    // (13-oct, JP) estado solo ícono con texto en hover
     const chip = firmado
-      ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma (mal firmada / hoja equivocada) y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('${tipoDoc}', ${r.id})">↩</button>`
-      : chipSinFirma(r.firma_rechazada_at);
+      ? `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span><span class="ctl rechazo" title="Rechazar esta firma (mal firmada / hoja equivocada) y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('${tipoDoc}', ${r.id})">${_ICO.deshacer}</span>`
+      : (r.firma_rechazada_at
+          ? `<span class="ctl rojo" title="Firma rechazada el ${fmtFecha(r.firma_rechazada_at)} — el PDF viejo se borró del OneDrive y del archivero. Cuando llegue el escaneo corregido se toma solo, aunque se llame igual.">${_ICO.deshacer}</span>`
+          : `<span class="ctl ambar" title="Sin firma: todavía no llegó el recibo firmado">${_ICO.reloj}</span>`);
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
       : (firmado
@@ -991,7 +993,7 @@ function renderRecibos() {
       <td>${escHtml(emp.local || '')}</td>
       <td>${fmtPeriodo(r.periodo)}${r.esSac ? ' <span class="chip" style="background:#ede9fe;color:#5b21b6;">SAC</span>' : ''}</td>
       <td>${fmtMoneda(r.recibo_neto)}</td>
-      <td>${chip}</td>
+      <td style="text-align:center;white-space:nowrap">${chip}</td>
       <td>${firmado ? fmtFecha(r.pdf_firmado_at) : '—'}</td>
       <td style="text-align:center">${r.pdf_url_firmado ? (url ? `<a href="${url}" target="_blank" class="doc-link" title="Abrir el PDF en SharePoint" onclick="event.stopPropagation()"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg></a>` : '<span title="Ruta vieja, no se puede abrir desde acá">⚠️</span>') : '—'}</td>
       <td>${chipControl(tipoDoc, r.id, r.controlado, r.controlado_por, r.controlado_at)}</td>
@@ -1276,6 +1278,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=19"></script>
+<script src="manual.js?v=20"></script>
 </body>
 </html>
