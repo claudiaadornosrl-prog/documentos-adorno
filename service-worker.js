@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v43-zebra';
+const CACHE_VERSION = 'docs-v44-observada-amarillo';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',

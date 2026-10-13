@@ -205,6 +205,9 @@ window.ADORNO_SSO = (function () {
   tbody tr:nth-child(even) { background: #eef3fb; }
   tbody tr.clickable { cursor: pointer; }
   tbody tr.clickable:hover { background: #dbe7fa; }
+  /* (13-oct, JP) fila observada en amarillo */
+  tbody tr.obs, tbody tr.obs:nth-child(even) { background: #fef3c7; }
+  tbody tr.obs.clickable:hover { background: #fde68a; }
   tbody tr.dim { color: var(--muted); }
 
   td.desc-corta { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -914,7 +917,7 @@ function renderRespaldo(pre) {
     const concepto = String(_categorias[f.categoria_id] || '');
     const desc = String(f.descripcion || '');
     const quien = String(f.cargado_por || '').split('@')[0];
-    return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
+    return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}${f.observacion_control ? ' obs' : ''}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
       <td>${fmtFecha(f.fecha)}</td>
       <td>${escHtml(cuenta)}</td>
       <td style="color:${f.importe < 0 ? 'var(--red)' : 'var(--green)'};white-space:nowrap">${fmtMoneda(f.importe)}</td>
@@ -1169,8 +1172,8 @@ function renderTesoreria() {
 // PDF equivocado): push al local para que lo corrija o lo borre y recargue.
 // (7-sep) Rechazar el archivo de una factura/depósito: foto equivocada. Se
 // borra del OneDrive por ID (papelera) y el local vuelve a adjuntar.
-async function docRechazarRespaldo(id) {
-  const motivo = prompt('¿Por qué se rechaza el archivo?\n(ej: "la foto no es la factura", "está ilegible")\nSe borra del OneDrive y el local tiene que volver a adjuntarlo.');
+async function docRechazarRespaldo(id, motivoDado) {
+  const motivo = motivoDado || prompt('¿Por qué se rechaza el archivo?\n(ej: "la foto no es la factura", "está ilegible")\nSe borra del OneDrive y el local tiene que volver a adjuntarlo.');
   if (!motivo) return;
   let { data, error } = await sb.rpc('doc_rechazar_respaldo', { p_id: id, p_motivo: motivo, p_confirmar_movido: false });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
@@ -1195,6 +1198,14 @@ async function docObservarMov(id, levantar) {
   const { data, error } = await sb.rpc('doc_observar_mov', { p_id: id, p_motivo: motivo });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   toast(levantar ? '✓ Observación levantada' : '⚠ Observado — se avisó al local para que lo corrija');
+  // (13-oct, JP) si el problema es el archivo (en blanco, foto equivocada), ofrecer borrarlo también
+  if (!levantar) {
+    const mov = [..._facturas, ..._depositos].find(x => x.id === id);
+    if (mov && mov.factura_path && confirm('¿El problema es el ARCHIVO adjunto (en blanco, ilegible, de otra cosa)?' + String.fromCharCode(10,10) + 'Aceptar = se borra del OneDrive y el local tiene que volver a adjuntarlo.' + String.fromCharCode(10) + 'Cancelar = el archivo queda, solo se avisa la observación.')) {
+      await docRechazarRespaldo(id, motivo);
+      return;
+    }
+  }
   cargarTodo();
 }
 
@@ -1262,6 +1273,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=17"></script>
+<script src="manual.js?v=18"></script>
 </body>
 </html>
