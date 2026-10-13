@@ -205,6 +205,7 @@ window.ADORNO_SSO = (function () {
   tbody tr.clickable:hover { background: var(--primary-bg); }
   tbody tr.dim { color: var(--muted); }
 
+  td.desc-corta { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ctl { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; border-radius: 8px; color: #94a3b8; }
   .ctl:hover { background: var(--gray-light); color: var(--text); }
   .ctl.ok { color: var(--green); }
@@ -1099,24 +1100,32 @@ function renderTesoreria() {
     const ct = ctMap[t.cuenta_id] || {};
     const url = pathToSharepointUrl(t.pdf_path);
     const firmado = !!t.firmado_at;
+    // (13-oct, JP) estado solo ícono con texto en hover
     const chip = firmado
-      ? `<span class="chip green">✅ Guardado</span> <button class="chip" style="cursor:pointer;background:#fee2e2;color:#991b1b;border:none;" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">↩</button>`
-      : chipSinFirma(t.firma_rechazada_at);
+      ? `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span><span class="ctl rechazo" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">${_ICO.deshacer}</span>`
+      : (t.firma_rechazada_at
+          ? `<span class="ctl rojo" title="Firma rechazada el ${fmtFecha(t.firma_rechazada_at)} — el PDF viejo se borró del OneDrive y del archivero. Cuando llegue el escaneo corregido se toma solo, aunque se llame igual.">${_ICO.deshacer}</span>`
+          : `<span class="ctl ambar" title="Sin firma: todavía no llegó el recibo firmado">${_ICO.reloj}</span>`);
     const onclick = (firmado && url)
       ? `onclick="window.open('${url}', '_blank')"`
       : (firmado
           ? `onclick="toast('Path no convertible: ${escHtml(t.pdf_path || '')}','error')"`
           : '');
     const cls = firmado && url ? 'clickable' : (firmado ? 'clickable' : 'dim');
+    // (13-oct, JP) columnas compactas: nº de MOV, cuenta sin "Caja", descripción en un renglón, usuario hasta la @
+    const nroMov = String(t.codigo_seguimiento || '').replace(/^MOV-0*/i, '') || String(t.id);
+    const cuenta = String(ct.nombre || '?').replace(/^caja\s+/i, '');
+    const desc = String(t.descripcion || '');
+    const quien = String(t.cargado_por || '').split('@')[0];
     return `<tr class="${cls}" ${onclick}>
       <td>${fmtFecha(t.fecha)}</td>
-      <td>${escHtml(t.codigo_seguimiento || '')}</td>
-      <td>${escHtml(ct.nombre || '?')}</td>
-      <td style="color:${t.importe < 0 ? 'var(--red)' : 'var(--green)'};">${fmtMoneda(t.importe)}</td>
+      <td title="${escHtml(t.codigo_seguimiento || '')}">${escHtml(nroMov)}</td>
+      <td>${escHtml(cuenta)}</td>
+      <td style="color:${t.importe < 0 ? 'var(--red)' : 'var(--green)'};white-space:nowrap">${fmtMoneda(t.importe)}</td>
       <td>${escHtml(_categorias[t.categoria_id] || '')}</td>
-      <td>${escHtml(t.descripcion || '')}</td>
-      <td>${escHtml(t.cargado_por || '')}</td>
-      <td>${chip}</td>
+      <td class="desc-corta" title="${escHtml(desc)}">${escHtml(desc)}</td>
+      <td title="${escHtml(t.cargado_por || '')}">${escHtml(quien)}</td>
+      <td style="text-align:center;white-space:nowrap">${chip}</td>
       <td>${firmado ? fmtFecha(t.firmado_at) : '—'}</td>
       <td>${chipControl('tesoreria', t.id, t.controlado, t.controlado_por, t.controlado_at)}</td>
     </tr>`;
@@ -1125,7 +1134,7 @@ function renderTesoreria() {
   document.getElementById('tes-body').innerHTML = `
     <table>
       <thead><tr>
-        ${docTh('tes','fecha','Fecha')}${docTh('tes','codigo','Código')}${docTh('tes','cuenta','Cuenta')}${docTh('tes','importe','Importe')}
+        ${docTh('tes','fecha','Fecha')}${docTh('tes','codigo','MOV')}${docTh('tes','cuenta','Cuenta')}${docTh('tes','importe','Importe')}
         ${docTh('tes','concepto','Concepto')}${docTh('tes','descripcion','Descripción')}${docTh('tes','cargado','Cargado por')}${docTh('tes','estado','Estado')}${docTh('tes','firma','Fecha firma')}${docTh('tes','control','Control')}
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -1234,6 +1243,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=13"></script>
+<script src="manual.js?v=14"></script>
 </body>
 </html>
