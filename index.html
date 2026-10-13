@@ -121,39 +121,46 @@ window.ADORNO_SSO = (function () {
 
   /* App */
   #app { display: none; }
+  /* (13-oct-2026, JP) cabecera como la de Compras/Tesorería: banner del color del módulo,
+     íconos blancos, el nombre se despliega al pasar el mouse (o queda fijo en la pestaña activa) */
   header {
-    background: white; border-bottom: 1px solid var(--border);
-    padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+    background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    padding: 10px 16px; display: flex; align-items: center; gap: 10px;
     position: sticky; top: 0; z-index: 100;
   }
-  header h1 { margin: 0; font-size: 18px; color: var(--primary); }
-  header .spacer { flex: 1; }
-  header .user-info { font-size: 13px; color: var(--muted); }
-  header button.logout {
-    background: white; border: 1px solid var(--border);
-    border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer;
-  }
-  header button.logout:hover { background: var(--gray-light); }
+  header h1 { margin: 0; font-size: 17px; color: #fff; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+  header .user-info { display: none; }
+  .ico { width: 20px; height: 20px; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .hbtn { display: flex; align-items: center; height: 34px; padding: 0 7px; border: none; border-radius: 9px; background: transparent; color: #fff; opacity: .85; cursor: pointer; font-family: inherit; font-size: 13px; white-space: nowrap; text-decoration: none; transition: background .15s, opacity .15s; }
+  .hbtn:hover { background: rgba(255,255,255,.18); opacity: 1; }
+  .hbtn .lb { max-width: 0; overflow: hidden; opacity: 0; margin-left: 0; transition: max-width .25s ease, opacity .18s, margin-left .25s; }
+  .hbtn:hover .lb { max-width: 160px; opacity: 1; margin-left: 6px; }
+  .hsep { width: 1px; height: 22px; background: rgba(255,255,255,.35); margin: 0 6px; flex: none; }
+  .header-right { display: flex; gap: 2px; align-items: center; flex: none; position: relative; }
 
-  nav.tabs {
-    display: flex; gap: 4px; padding: 8px 20px;
-    background: white; border-bottom: 1px solid var(--border);
-    overflow-x: auto;
+  nav.tabs { display: flex; gap: 2px; overflow-x: auto; flex: 1; margin: 0 10px; justify-content: flex-end; align-items: center; scrollbar-width: none; }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs button { display: flex; align-items: center; height: 34px; padding: 0 7px; border: none; border-radius: 9px; background: transparent; color: #fff; opacity: .85; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; white-space: nowrap; transition: background .15s, opacity .15s; }
+  nav.tabs button .lb { max-width: 0; overflow: hidden; opacity: 0; margin-left: 0; transition: max-width .25s ease, opacity .18s, margin-left .25s; }
+  nav.tabs button:hover .lb, nav.tabs button.active .lb { max-width: 170px; opacity: 1; margin-left: 6px; }
+  nav.tabs button:hover { background: rgba(255,255,255,.18); opacity: 1; }
+  nav.tabs button.active { background: #fff; color: var(--primary-dark); opacity: 1; font-weight: 700; }
+  nav.tabs button .count { background: rgba(255,255,255,.25); color: #fff; padding: 1px 7px; border-radius: 10px; font-size: 11px; margin-left: 5px; font-weight: 700; }
+  nav.tabs button.active .count { background: var(--primary); color: #fff; }
+  .kebab-tabs-btn { display: none; }
+  @media (max-width: 900px) {
+    .kebab-tabs-btn { display: flex; }
+    nav.tabs { display: none; position: absolute; top: calc(100% + 4px); right: 8px; left: auto;
+      background: white; border: 1px solid var(--border); border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.14); flex-direction: column; padding: 6px;
+      z-index: 200; margin: 0; min-width: 230px; overflow: visible; }
+    nav.tabs.open { display: flex; }
+    nav.tabs button { justify-content: flex-start; color: var(--text); opacity: 1; border-left: 3px solid transparent; border-radius: 6px; height: auto; padding: 10px 12px; }
+    nav.tabs button .lb { max-width: none; opacity: 1; margin-left: 8px; }
+    nav.tabs button .count { background: var(--gray-light); color: var(--muted); }
+    nav.tabs button:hover { background: #fafafa; }
+    nav.tabs button.active { border-left-color: var(--primary); background: var(--primary-bg); color: var(--primary-dark); }
   }
-  nav.tabs button {
-    background: transparent; border: none; padding: 10px 16px;
-    font-size: 14px; cursor: pointer; color: var(--muted);
-    border-radius: 8px 8px 0 0; white-space: nowrap;
-  }
-  nav.tabs button.active {
-    background: var(--primary-bg); color: var(--primary);
-    font-weight: 600;
-  }
-  nav.tabs button .count {
-    background: var(--gray-light); color: var(--muted);
-    padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px;
-  }
-  nav.tabs button.active .count { background: var(--primary); color: white; }
 
   main { padding: 20px; max-width: 1400px; margin: 0 auto; }
   .filters {
@@ -221,7 +228,6 @@ window.ADORNO_SSO = (function () {
   @media (max-width: 600px) {
     main { padding: 10px; }
     th, td { padding: 8px 10px; font-size: 13px; }
-    header h1 { font-size: 16px; }
   }
 </style>
 </head>
@@ -245,20 +251,22 @@ window.ADORNO_SSO = (function () {
 <!-- ════════ APP ════════ -->
 <div id="app">
   <header>
-    <a href="https://claudiaadornosrl-prog.github.io/hub/" title="Volver al Hub" aria-label="Volver al Hub" style="text-decoration:none;font-size:17px;line-height:1;color:inherit;opacity:0.65;padding:4px 8px;border-radius:8px;">↩</a>
-    <h1>📂 Documentos · Claudia Adorno</h1>
-    <div class="spacer"></div>
-    <div class="user-info" id="user-info"></div>
-    <button class="logout" onclick="doLogout()">Salir</button>
+    <h1><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documentos</h1>
+    <span class="user-info" id="user-info"></span>
+    <nav class="tabs" id="tabs">
+      <button id="tab-recibos" class="active" onclick="switchTab('recibos')" title="Recibos de sueldo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lb">Recibos de sueldo</span><span class="count" id="cnt-recibos">…</span></button>
+      <button id="tab-vacaciones" onclick="switchTab('vacaciones')" title="Vacaciones"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><span class="lb">Vacaciones</span><span class="count" id="cnt-vacaciones">…</span></button>
+      <button id="tab-tesoreria" onclick="switchTab('tesoreria')" title="Recibos de Tesorería"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg><span class="lb">Recibos</span><span class="count" id="cnt-tesoreria">…</span></button>
+      <button id="tab-facturas" onclick="switchTab('facturas')" title="Facturas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span class="lb">Facturas</span><span class="count" id="cnt-facturas">…</span></button>
+      <button id="tab-depositos" onclick="switchTab('depositos')" title="Depósitos"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18"/><path d="M12 3 2 9h20z"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 18h18v3H3z"/></svg><span class="lb">Depósitos</span><span class="count" id="cnt-depositos">…</span></button>
+    </nav>
+    <div class="header-right">
+      <button class="hbtn kebab-tabs-btn" onclick="toggleTabsMenu(event)" title="Menú" aria-label="Menú"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></button>
+      <span class="hsep"></span>
+      <a class="hbtn" href="https://claudiaadornosrl-prog.github.io/hub/" title="Volver al Hub" aria-label="Volver al Hub"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg><span class="lb">Hub</span></a>
+      <button class="hbtn" onclick="doLogout()" title="Salir" aria-label="Salir"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span class="lb">Salir</span></button>
+    </div>
   </header>
-
-  <nav class="tabs">
-    <button id="tab-recibos"    class="active" onclick="switchTab('recibos')">📋 Recibos de sueldo <span class="count" id="cnt-recibos">…</span></button>
-    <button id="tab-vacaciones" onclick="switchTab('vacaciones')">🌴 Vacaciones <span class="count" id="cnt-vacaciones">…</span></button>
-    <button id="tab-tesoreria"  onclick="switchTab('tesoreria')">💵 Recibos <span class="count" id="cnt-tesoreria">…</span></button>
-    <button id="tab-facturas"   onclick="switchTab('facturas')">🧺 Facturas <span class="count" id="cnt-facturas">…</span></button>
-    <button id="tab-depositos"  onclick="switchTab('depositos')">🏦 Depósitos <span class="count" id="cnt-depositos">…</span></button>
-  </nav>
 
   <main>
     <!-- ─── Recibos ─── -->
@@ -1153,7 +1161,10 @@ function empty(msg) {
   return `<div class="empty"><div class="emoji">📭</div>${escHtml(msg)}</div>`;
 }
 
+function toggleTabsMenu(ev) { ev.stopPropagation(); document.getElementById('tabs').classList.toggle('open'); }
+document.addEventListener('click', () => document.getElementById('tabs')?.classList.remove('open'));
 function switchTab(name) {
+  document.getElementById('tabs').classList.remove('open');
   document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
@@ -1191,6 +1202,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=8"></script>
+<script src="manual.js?v=9"></script>
 </body>
 </html>
