@@ -145,7 +145,8 @@ window.ADORNO_SSO = (function () {
   nav.tabs button:hover .lb, nav.tabs button.active .lb { max-width: 170px; opacity: 1; margin-left: 6px; }
   nav.tabs button:hover { background: rgba(255,255,255,.18); opacity: 1; }
   nav.tabs button.active { background: #fff; color: var(--primary-dark); opacity: 1; font-weight: 700; }
-  nav.tabs button .count { background: rgba(255,255,255,.25); color: #fff; padding: 1px 7px; border-radius: 10px; font-size: 11px; margin-left: 5px; font-weight: 700; }
+  nav.tabs button .count { background: rgba(255,255,255,.25); color: #fff; padding: 1px 7px; border-radius: 10px; font-size: 11px; margin-left: 5px; font-weight: 700; display: none; }
+  nav.tabs button:hover .count:not(:empty), nav.tabs button.active .count:not(:empty) { display: inline-block; }
   nav.tabs button.active .count { background: var(--primary); color: #fff; }
   .kebab-tabs-btn { display: none; }
   @media (max-width: 900px) {
@@ -157,7 +158,7 @@ window.ADORNO_SSO = (function () {
     nav.tabs.open { display: flex; }
     nav.tabs button { justify-content: flex-start; color: var(--text); opacity: 1; border-left: 3px solid transparent; border-radius: 6px; height: auto; padding: 10px 12px; }
     nav.tabs button .lb { max-width: none; opacity: 1; margin-left: 8px; }
-    nav.tabs button .count { background: var(--gray-light); color: var(--muted); }
+    nav.tabs button .count:not(:empty) { background: var(--gray-light); color: var(--muted); display: inline-block; margin-left: auto; }
     nav.tabs button:hover { background: #fafafa; }
     nav.tabs button.active { border-left-color: var(--primary); background: var(--primary-bg); color: var(--primary-dark); }
   }
@@ -254,11 +255,11 @@ window.ADORNO_SSO = (function () {
     <h1><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documentos</h1>
     <span class="user-info" id="user-info"></span>
     <nav class="tabs" id="tabs">
-      <button id="tab-recibos" class="active" onclick="switchTab('recibos')" title="Recibos de sueldo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lb">Recibos de sueldo</span><span class="count" id="cnt-recibos">…</span></button>
-      <button id="tab-vacaciones" onclick="switchTab('vacaciones')" title="Vacaciones"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><span class="lb">Vacaciones</span><span class="count" id="cnt-vacaciones">…</span></button>
-      <button id="tab-tesoreria" onclick="switchTab('tesoreria')" title="Recibos de Tesorería"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg><span class="lb">Recibos</span><span class="count" id="cnt-tesoreria">…</span></button>
-      <button id="tab-facturas" onclick="switchTab('facturas')" title="Facturas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span class="lb">Facturas</span><span class="count" id="cnt-facturas">…</span></button>
-      <button id="tab-depositos" onclick="switchTab('depositos')" title="Depósitos"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18"/><path d="M12 3 2 9h20z"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 18h18v3H3z"/></svg><span class="lb">Depósitos</span><span class="count" id="cnt-depositos">…</span></button>
+      <button id="tab-recibos" class="active" onclick="switchTab('recibos')" title="Recibos de sueldo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lb">Recibos de sueldo</span><span class="count" id="cnt-recibos"></span></button>
+      <button id="tab-vacaciones" onclick="switchTab('vacaciones')" title="Vacaciones"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg><span class="lb">Vacaciones</span><span class="count" id="cnt-vacaciones"></span></button>
+      <button id="tab-tesoreria" onclick="switchTab('tesoreria')" title="Recibos de Tesorería"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg><span class="lb">Recibos</span><span class="count" id="cnt-tesoreria"></span></button>
+      <button id="tab-facturas" onclick="switchTab('facturas')" title="Facturas"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="16" y2="13"/></svg><span class="lb">Facturas</span><span class="count" id="cnt-facturas"></span></button>
+      <button id="tab-depositos" onclick="switchTab('depositos')" title="Depósitos"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10h18"/><path d="M12 3 2 9h20z"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 18h18v3H3z"/></svg><span class="lb">Depósitos</span><span class="count" id="cnt-depositos"></span></button>
     </nav>
     <div class="header-right">
       <button class="hbtn kebab-tabs-btn" onclick="toggleTabsMenu(event)" title="Menú" aria-label="Menú"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></button>
@@ -1202,6 +1203,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=9"></script>
+<script src="manual.js?v=10"></script>
 </body>
 </html>
