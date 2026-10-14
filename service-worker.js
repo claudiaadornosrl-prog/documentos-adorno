@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v47-neto-nowrap';
+const CACHE_VERSION = 'docs-v48-sin-cierre-afuera';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
