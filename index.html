@@ -210,6 +210,8 @@ window.ADORNO_SSO = (function () {
   tbody tr.obs.clickable:hover { background: #fde68a; }
   tbody tr.dim { color: var(--muted); }
 
+  .obs-txt { white-space: normal; font-size: 12px; color: #92400e; margin-top: 3px; }
+  body.modo-local .filters select[id$='-estado'] option[value='controlado'] { display: none; }
   td.desc-corta { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ctl { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 28px; border-radius: 8px; color: #94a3b8; }
   .ctl:hover { background: var(--gray-light); color: var(--text); }
@@ -269,7 +271,7 @@ window.ADORNO_SSO = (function () {
 <!-- ════════ APP ════════ -->
 <div id="app">
   <header>
-    <h1><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documentos</h1>
+    <h1><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Documentos <span id="hdr-local" style="font-weight:400;opacity:.85;font-size:14px"></span></h1>
     <span class="user-info" id="user-info"></span>
     <nav class="tabs" id="tabs">
       <button id="tab-recibos" class="active" onclick="switchTab('recibos')" title="Recibos de sueldo"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="lb">Recibos de sueldo</span><span class="count" id="cnt-recibos"></span></button>
@@ -457,11 +459,35 @@ const SIN_RECIBOS_EMAILS = [
 ];
 // El sistema nuevo arranca en mayo 2026 — documentos anteriores no se listan.
 const RECIBOS_DESDE = '2026-05-01';  // inicio del sistema nuevo — aplica a TODOS los tabs
+// (v49, JP) MODO LOCAL: encargadas y cajeras entran a ver los documentos de SU local (facturas, depósitos,
+// recibos de Tesorería), solo lectura, con lo observado por Oficina resaltado. Nada de recibos de sueldo ni vacaciones.
+let MODO_LOCAL = null;   // null = Oficina · 'alcorta' | 'unicenter' | 'oficina' = local de la encargada/cajera
+const NOMBRE_LOCAL = { alcorta: 'Alcorta', unicenter: 'Unicenter', oficina: 'Oficina' };
+async function resolverModo(email) {
+  if (ALLOWED_EMAILS.includes((email || '').toLowerCase())) { MODO_LOCAL = null; return 'oficina'; }
+  const [g, c] = await Promise.all([sb.rpc('tesoreria_gerente_local'), sb.rpc('tesoreria_cajera_local')]);
+  const loc = (g.data || c.data || '').toLowerCase();
+  if (!loc) return null;
+  MODO_LOCAL = loc; return loc;
+}
+function _aplicarModoLocal() {
+  const h = document.getElementById('hdr-local');
+  if (h) h.textContent = MODO_LOCAL ? '· ' + (NOMBRE_LOCAL[MODO_LOCAL] || MODO_LOCAL) : '';
+  document.body.classList.toggle('modo-local', !!MODO_LOCAL);
+}
 function puedeVerRecibos() {
+  if (MODO_LOCAL) return false;
   return !SIN_RECIBOS_EMAILS.includes((session?.email || '').toLowerCase());
 }
 function aplicarPermisosTabs() {
-  const tabR = document.getElementById('tab-recibos');
+  const tabR = document.getElementById('tab-recibos'), tabV = document.getElementById('tab-vacaciones');
+  _aplicarModoLocal();
+  if (MODO_LOCAL) {
+    tabR.style.display = 'none'; tabV.style.display = 'none';
+    if (tabR.classList.contains('active') || tabV.classList.contains('active')) switchTab('facturas');
+    return;
+  }
+  tabV.style.display = '';
   if (!puedeVerRecibos()) {
     tabR.style.display = 'none';
     // Si el tab activo era recibos, saltar a vacaciones
@@ -566,14 +592,14 @@ async function doLogin() {
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
   if (!email || !pass) { errEl.textContent = 'Email y contraseña obligatorios'; return; }
-  if (!ALLOWED_EMAILS.includes(email)) {
-    errEl.textContent = 'Este módulo es solo para Oficina (Marisa, Analía, JP).';
-    return;
-  }
   document.getElementById('btn-login').disabled = true;
   try {
     const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
     if (error) throw error;
+    if (!(await resolverModo(email))) {
+      await sb.auth.signOut();
+      throw new Error('Este módulo es para Oficina y para las encargadas/cajeras de los locales.');
+    }
     session = { email, user: data.user };
     document.getElementById('user-info').textContent = email;
     document.getElementById('login').style.display = 'none';
@@ -597,10 +623,10 @@ async function detectarAdmin() {
 // ── Tilde de control: cualquiera lo pone; SOLO el admin lo puede sacar ──
 // (13-oct, JP) el contador de la pestaña = cuántos faltan controlar (vacío si no falta ninguno)
 function _cntTab(id, lista) {
-  const n = (lista || []).filter(x => !x.controlado).length;
+  const n = MODO_LOCAL ? (lista || []).filter(x => x.observacion_control).length : (lista || []).filter(x => !x.controlado).length;
   const el = document.getElementById(id); if (!el) return;
   el.textContent = n ? String(n) : '';
-  el.title = n ? `${n} sin controlar` : '';
+  el.title = n ? (MODO_LOCAL ? `${n} observado(s) por Oficina: hay que corregirlos` : `${n} sin controlar`) : '';
 }
 const _ICO = {
   ok: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
@@ -619,6 +645,11 @@ const _ICO = {
 };
 // (13-oct, JP) solo el ícono; el significado aparece al pasar el mouse
 function chipControl(tipo, id, controlado, por, at) {
+  if (MODO_LOCAL) {   // (v49) la encargada solo VE el estado
+    return controlado
+      ? `<span class="ctl ok" title="Oficina ya lo controló${por ? ' (' + escHtml(String(por).split('@')[0]) + ')' : ''}">${_ICO.ok}</span>`
+      : `<span class="ctl" title="Oficina todavía no lo controló">${_ICO.punto}</span>`;
+  }
   const ok = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/></svg>';
   const vacio = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>';
   if (controlado) {
@@ -654,8 +685,7 @@ async function doLogout() {
   const { data: { session: s } } = await sb.auth.getSession();
   // (SSO) Con sesión heredada de otro módulo, entra directo solo si el
   // equipo es de confianza o si ya te habías logueado acá antes.
-  if (s && ALLOWED_EMAILS.includes((s.user?.email || '').toLowerCase())
-        && ADORNO_SSO.entraDirecto('documentos', s.user?.email)) {
+  if (s && ADORNO_SSO.entraDirecto('documentos', s.user?.email) && await resolverModo(s.user?.email)) {
     session = { email: s.user.email, user: s.user };
     document.getElementById('user-info').textContent = s.user.email;
     document.getElementById('login').style.display = 'none';
@@ -693,12 +723,9 @@ async function cargarTodo() {
     _categorias = Object.fromEntries((cats || []).map(c => [c.id, c.nombre]));
 
     await detectarAdmin();
-    await Promise.all([
-      cargarRecibos(),
-      cargarVacaciones(),
-      cargarTesoreria(),
-      cargarFacturas(),
-    ]);
+    await Promise.all(MODO_LOCAL
+      ? [cargarTesoreria(), cargarFacturas()]
+      : [cargarRecibos(), cargarVacaciones(), cargarTesoreria(), cargarFacturas()]);
   } catch (e) {
     toast('Error al cargar datos: ' + e.message, 'error');
   }
@@ -880,6 +907,7 @@ function renderRespaldo(pre) {
     importe: f => Number(f.importe || 0), concepto: f => _categorias[f.categoria_id] || '', descripcion: f => f.descripcion || '',
     cargado: f => f.cargado_por || '', envio: f => f.factura_enviada_at || '', control: f => f.controlado ? 1 : 0 };
   filtrados = docAplicar(pre, filtrados, facGet);
+  if (MODO_LOCAL) filtrados.sort((a, b) => (b.observacion_control ? 1 : 0) - (a.observacion_control ? 1 : 0));   // (v49) lo observado arriba
 
   _cntTab(esDep ? 'cnt-depositos' : 'cnt-facturas', (esDep ? _depositos : _facturas));
   const ctrl = filtrados.filter(f => f.controlado).length;
@@ -912,7 +940,9 @@ function renderRespaldo(pre) {
       enviada = `<span class="ctl" title="Sin archivo">${_ICO.punto}</span>`;
     }
     const tieneArchivo = !!f.factura_path;
-    const obs = f.observacion_control
+    const obs = MODO_LOCAL
+      ? (f.observacion_control ? `<span class="ctl ambar" title="${escHtml(f.observacion_control)}">${_ICO.alerta}</span>` : '')
+      : f.observacion_control
       ? `<span class="ctl ambar" title="Observada por ${escHtml(f.observacion_control_por || '')}: ${escHtml(f.observacion_control)}">${_ICO.alerta}</span><span class="ctl rechazo" title="Levantar la observación" onclick="event.stopPropagation();docObservarMov(${f.id}, true)">${_ICO.ok}</span>`
       : `<span class="ctl rechazo" title="Observar: algo está mal (importe, concepto o el archivo adjunto) — le llega el aviso al local para corregirlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">${_ICO.alerta}</span>`;
     const cuenta = String(ct.nombre || '?').replace(/^caja\s+/i, '');
@@ -924,7 +954,7 @@ function renderRespaldo(pre) {
       <td>${escHtml(cuenta)}</td>
       <td style="color:${f.importe < 0 ? 'var(--red)' : 'var(--green)'};white-space:nowrap">${fmtMoneda(f.importe)}</td>
       <td class="desc-corta" style="max-width:150px" title="${escHtml(concepto)}">${escHtml(concepto)}</td>
-      <td class="desc-corta" title="${escHtml(desc)}">${escHtml(desc)}</td>
+      <td class="desc-corta" title="${escHtml(desc)}">${escHtml(desc)}${MODO_LOCAL && f.observacion_control ? `<div class="obs-txt">⚠ ${escHtml(f.observacion_control)}${f.observacion_control_por ? ' — ' + escHtml(String(f.observacion_control_por).split('@')[0]) : ''}</div>` : ''}</td>
       <td title="${escHtml(f.cargado_por || '')}">${escHtml(quien)}</td>
       <td style="text-align:center">${tieneArchivo ? `<a href="${escHtml(f.factura_path)}" target="_blank" class="doc-link" title="${esDep ? 'Abrir el comprobante' : 'Abrir la factura'}" onclick="event.stopPropagation()">${_ICO.clip}</a>` : `<span title="Sin archivo (rechazado o purgado por el circuito viejo)">—</span>`}</td>
       <td style="text-align:center">${enviada}</td>
@@ -1129,7 +1159,7 @@ function renderTesoreria() {
     const firmado = !!t.firmado_at;
     // (13-oct, JP) estado solo ícono con texto en hover
     const chip = firmado
-      ? `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span><span class="ctl rechazo" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">${_ICO.deshacer}</span>`
+      ? `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span>${MODO_LOCAL ? '' : `<span class="ctl rechazo" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">${_ICO.deshacer}</span>`}`
       : (t.firma_rechazada_at
           ? `<span class="ctl rojo" title="Firma rechazada el ${fmtFecha(t.firma_rechazada_at)} — el PDF viejo se borró del OneDrive y del archivero. Cuando llegue el escaneo corregido se toma solo, aunque se llame igual.">${_ICO.deshacer}</span>`
           : `<span class="ctl ambar" title="Sin firma: todavía no llegó el recibo firmado">${_ICO.reloj}</span>`);
@@ -1278,6 +1308,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=22"></script>
+<script src="manual.js?v=23"></script>
 </body>
 </html>

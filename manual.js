@@ -80,6 +80,17 @@ function _manualSecciones() {
         'Todas las tablas tienen buscador y se ordenan tocando el encabezado de la columna.',
       ],
     },
+    {
+      icon: '🏪', titulo: 'Desde el local (encargadas y cajeras)',
+      desc: 'Las encargadas y cajeras entran con su usuario y ven SOLO los documentos de su local, sin poder modificarlos.',
+      pasos: [
+        'Al lado del título aparece el local (· Alcorta, · Unicenter, · Oficina). Solo se ven las pestañas Recibos de tesorería, Facturas y Depósitos.',
+        'Las filas en AMARILLO son las observadas por Oficina: debajo de la descripción está el motivo y quién lo observó. Van siempre arriba de la lista.',
+        'El número al lado de cada pestaña es la cantidad de documentos observados que hay que corregir.',
+        'En la columna Control: ✔ Oficina ya lo controló · punto gris = todavía no lo revisó · ⚠ observado (el motivo aparece al pasar el mouse).',
+        'Para corregir un documento observado se vuelve a Tesorería (subir el archivo correcto o pedir a Oficina que lo anule). Desde acá no se cambia nada.',
+      ],
+    },
   ];
 }
 
