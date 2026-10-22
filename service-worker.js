@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v49-modo-local';
+const CACHE_VERSION = 'docs-v50-sao-paulo';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
