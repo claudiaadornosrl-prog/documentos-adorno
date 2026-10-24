@@ -410,7 +410,7 @@ window.ADORNO_SSO = (function () {
 // Config Supabase
 // ═══════════════════════════════════════════════════════════════════════
 const SUPABASE_URL  = 'https://jfwtiagteuwmyvblgwms.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Impmd3RpYWd0ZXV3bXl2Ymxnd21zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI2NjgyNTAsImV4cCI6MjEwODI0NDI1MH0.LyDolbCwWWKXiiakFwX3PHK8ALDKaV6p-fWQzf-L7u0';
+const SUPABASE_ANON = 'sb_publishable_udSPma98Sw9eskeeLCgdCw_S2vIX0Fk';
 ADORNO_SSO.migrar('sb-jfwtiagteuwmyvblgwms-auth-token', 'documentos');
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
   auth: { persistSession: true, autoRefreshToken: true, storageKey: ADORNO_SSO.KEY }
