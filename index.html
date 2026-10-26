@@ -1090,6 +1090,11 @@ function renderRespaldo(pre) {
     let enviada;
     if (f.respaldo_rechazado_at && !f.factura_path) {
       enviada = `<span class="ctl rojo" title="Archivo rechazado, esperando uno nuevo. Motivo: ${escHtml(f.respaldo_rechazo_motivo || '')}">${_ICO.deshacer}</span>`;
+    } else if (f.archivo_item_id && /borrado/i.test(f.archivo_carpeta || '')) {
+      // (26-oct, JP) el rechequeo del VPS no encontró más el archivo por ID: administración lo recreó con otro nombre
+      // (el ID cambia) o lo borró. El link viejo da 404, así que no se ofrece; el VPS intenta re-encontrarlo cada hora.
+      enviada = `<span class="ctl rojo" title="El archivo ya no está donde se guardó (lo renombraron o lo borraron del OneDrive). El link viejo daría error 404. El sistema lo busca de nuevo cada hora; si no aparece, pedir el archivo a administración.
+${escHtml(f.archivo_nombre || '')}">${_ICO.alerta}</span>`;
     } else if (f.archivo_item_id) {
       const carp = (f.archivo_carpeta || '').split('/').filter(Boolean);
       const etapa = carp.length ? carp[carp.length - 1] : '?';
@@ -1102,7 +1107,7 @@ function renderRespaldo(pre) {
     } else {
       enviada = `<span class="ctl" title="Sin archivo">${_ICO.punto}</span>`;
     }
-    const tieneArchivo = !!f.factura_path;
+    const tieneArchivo = !!f.factura_path && !/borrado/i.test(f.archivo_carpeta || '');  // (26-oct) link muerto = sin link
     const obs = MODO_LOCAL
       ? (f.observacion_control ? `<span class="ctl ambar" title="${escHtml(f.observacion_control)}">${_ICO.alerta}</span>` : '')
       : f.observacion_control
@@ -1119,7 +1124,7 @@ function renderRespaldo(pre) {
       <td class="desc-corta" style="max-width:150px" title="${escHtml(concepto)}">${escHtml(concepto)}</td>
       <td class="desc-corta" title="${escHtml(desc)}">${escHtml(desc)}${MODO_LOCAL && f.observacion_control ? `<div class="obs-txt">⚠ ${escHtml(f.observacion_control)}${f.observacion_control_por ? ' — ' + escHtml(String(f.observacion_control_por).split('@')[0]) : ''}</div>` : ''}</td>
       <td title="${escHtml(f.cargado_por || '')}">${escHtml(quien)}</td>
-      <td style="text-align:center">${tieneArchivo ? `<a href="${escHtml(f.factura_path)}" target="_blank" class="doc-link" title="${esDep ? 'Abrir el comprobante' : 'Abrir la factura'}" onclick="event.stopPropagation()">${_ICO.clip}</a>` : `<span title="Sin archivo (rechazado o purgado por el circuito viejo)">—</span>`}</td>
+      <td style="text-align:center">${tieneArchivo ? `<a href="${escHtml(f.factura_path)}" target="_blank" class="doc-link" title="${esDep ? 'Abrir el comprobante' : 'Abrir la factura'}" onclick="event.stopPropagation()">${_ICO.clip}</a>` : `<span title="${/borrado/i.test(f.archivo_carpeta || '') ? 'El archivo ya no está en el OneDrive donde se guardó' : 'Sin archivo (rechazado o purgado por el circuito viejo)'}">—</span>`}</td>
       <td style="text-align:center">${enviada}</td>
       <td style="white-space:nowrap;">${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}${obs}</td>
     </tr>`;
