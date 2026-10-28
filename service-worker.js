@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v63-clodi-anim';
+const CACHE_VERSION = 'docs-v64-clodi-boca';
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
