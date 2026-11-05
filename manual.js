@@ -79,6 +79,8 @@ function _manualSecciones() {
         'Cualquier usuaria puede marcar ☑ un documento como controlado — queda registrado quién y cuándo.',
         'Solo el admin puede desmarcarlo.',
         'Todas las tablas tienen buscador y se ordenan tocando el encabezado de la columna.',
+        'El número al lado de cada pestaña cuenta TODO lo que falta controlar, de cualquier año. La lista, en cambio, muestra solo lo que pasa los filtros (año, empleada o caja, estado, buscador).',
+        'Si hay algo sin controlar que el filtro deja afuera (por ejemplo vacaciones del año que viene, que se firman antes), en la línea de totales aparece la pastilla amarilla "⚠ N sin controlar fuera del filtro · año". Tocándola se limpian los filtros y se va directo a ese año.',
       ],
     },
     {
@@ -87,7 +89,7 @@ function _manualSecciones() {
       pasos: [
         'Al lado del título aparece el local (· Alcorta, · Unicenter, · Oficina). Solo se ven las pestañas Recibos de tesorería, Facturas y Depósitos.',
         'Las filas en AMARILLO son las observadas por Oficina: debajo de la descripción está el motivo y quién lo observó. Van siempre arriba de la lista.',
-        'El número al lado de cada pestaña es la cantidad de documentos observados que hay que corregir.',
+        'El número al lado de cada pestaña es la cantidad de documentos observados que hay que corregir. Si alguno no se ve por el filtro de año, aparece la pastilla amarilla "⚠ N observado(s) fuera del filtro": tocándola te lleva a ese año.',
         'En la columna Control: ✔ Oficina ya lo controló · punto gris = todavía no lo revisó · ⚠ observado (el motivo aparece al pasar el mouse).',
         'Para corregir un documento observado se vuelve a Tesorería (subir el archivo correcto o pedir a Oficina que lo anule). Desde acá no se cambia nada.',
       ],

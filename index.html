@@ -510,6 +510,10 @@ window.ADORNO_SSO = (function () {
   .ctl:hover { background: var(--gray-light); color: var(--text); }
   .ctl.ok { color: var(--green); }
   .ctl.rojo { color: var(--red); } .ctl.ambar { color: var(--amber); } .ctl.azul { color: var(--primary); }
+  /* (5-nov) aviso de pendientes que el filtro deja afuera — pastilla, regla de diseño de JP */
+  .aviso-fuera { display: inline-block; margin-left: 10px; padding: 2px 12px; border-radius: 999px;
+    background: var(--amber-bg); color: var(--amber); font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
+  .aviso-fuera:hover { filter: brightness(0.96); text-decoration: underline; }
   .ctl.verde { color: var(--green); } .ctl.violeta { color: #7c3aed; }
   .ctl.rechazo { color: #cbd5e1; cursor: pointer; } .ctl.rechazo:hover { color: var(--red); background: var(--red-bg); }
   .doc-link { display: inline-flex; color: var(--primary); padding: 4px; border-radius: 6px; }
@@ -930,6 +934,26 @@ function _cntTab(id, lista) {
   el.textContent = n ? String(n) : '';
   el.title = n ? (MODO_LOCAL ? `${n} observado(s) por Oficina: hay que corregirlos` : `${n} sin controlar`) : '';
 }
+// (5-nov-2026, Rivera: "me sigue el aviso pero no hay nada para tildar") El número de la pestaña cuenta TODO lo
+// pendiente; la lista, solo lo que pasa los filtros (año, empleada/cuenta, estado, buscador). Caso real: vacaciones de
+// febrero 2027 firmadas en octubre, invisibles con el año 2026 elegido. Si algo pendiente queda afuera, la línea de
+// totales lo avisa y un click limpia los filtros y va al año donde está.
+function _avisoFuera(pre, todos, visibles, fechaDe) {
+  const vis = new Set(visibles);
+  const fuera = (todos || []).filter(x => !vis.has(x) && (MODO_LOCAL ? !!x.observacion_control : !x.controlado));
+  if (!fuera.length) return '';
+  const n = fuera.length;
+  const anios = [...new Set(fuera.map(x => String(fechaDe(x) || '').slice(0, 4)).filter(Boolean))].sort();
+  const que = MODO_LOCAL ? (n > 1 ? 'observados' : 'observado') : 'sin controlar';
+  return ` <a href="#" class="aviso-fuera" onclick="event.preventDefault();_verFuera('${pre}', '${anios.length === 1 ? anios[0] : ''}')"
+    title="Hay ${n} ${que} que no se ${n > 1 ? 'ven' : 've'} con los filtros de ahora. Click para ${n > 1 ? 'mostrarlos' : 'mostrarlo'}.">⚠ ${n} ${que} fuera del filtro${anios.length ? ' · ' + anios.join(', ') : ''}</a>`;
+}
+function _verFuera(pre, anio) {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set(pre + '-anio', anio); set(pre + '-empleado', ''); set(pre + '-cuenta', ''); set(pre + '-estado', ''); set(pre + '-buscar', '');
+  _docBusq[pre] = '';
+  (_DOC_RENDERS[pre] || (() => {}))();
+}
 const _ICO = {
   ok: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
   reloj: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
@@ -1214,7 +1238,8 @@ function renderRespaldo(pre) {
   _cntTab(esDep ? 'cnt-depositos' : 'cnt-facturas', (esDep ? _depositos : _facturas));
   const ctrl = filtrados.filter(f => f.controlado).length;
   document.getElementById(pre + '-stat').innerHTML =
-    `<span title="${filtrados.length} ${etiqueta} · ${ctrl} controlad${esDep ? 'os' : 'as'} · ${filtrados.length - ctrl} pendientes"><strong>${filtrados.length}</strong> · ☑ <strong>${ctrl}</strong> · ⬜ <strong>${filtrados.length - ctrl}</strong></span>`;
+    `<span title="${filtrados.length} ${etiqueta} · ${ctrl} controlad${esDep ? 'os' : 'as'} · ${filtrados.length - ctrl} pendientes"><strong>${filtrados.length}</strong> · ☑ <strong>${ctrl}</strong> · ⬜ <strong>${filtrados.length - ctrl}</strong></span>`
+    + _avisoFuera(pre, esDep ? _depositos : _facturas, filtrados, f => f.fecha);
 
   if (filtrados.length === 0) {
     document.getElementById(pre + '-body').innerHTML = empty(`No hay ${etiqueta} con esos filtros`);
@@ -1300,7 +1325,8 @@ function renderRecibos() {
   _cntTab('cnt-recibos', _recibos);
   const firmados = filtrados.filter(r => r.pdf_firmado_at).length;
   document.getElementById('rec-stat').innerHTML =
-    `<span title="${filtrados.length} recibos · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`;
+    `<span title="${filtrados.length} recibos · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`
+    + _avisoFuera('rec', _recibos, filtrados, r => r.periodo);
 
   if (filtrados.length === 0) {
     document.getElementById('rec-body').innerHTML = empty('No hay recibos con esos filtros');
@@ -1373,7 +1399,8 @@ function renderVacaciones() {
   _cntTab('cnt-vacaciones', _vacaciones.filter(v => v.estado !== 'rechazada'));
   const firmados = filtrados.filter(v => v.documento_firmado_at).length;
   document.getElementById('vac-stat').innerHTML =
-    `<span title="${filtrados.length} registros · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`;
+    `<span title="${filtrados.length} registros · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`
+    + _avisoFuera('vac', _vacaciones.filter(v => v.estado !== 'rechazada'), filtrados, v => v.fecha_desde);
 
   if (filtrados.length === 0) {
     document.getElementById('vac-body').innerHTML = empty('No hay vacaciones con esos filtros');
@@ -1452,7 +1479,8 @@ function renderTesoreria() {
   _cntTab('cnt-tesoreria', _tesoreria);
   const firmados = filtrados.filter(t => t.firmado_at).length;
   document.getElementById('tes-stat').innerHTML =
-    `<span title="${filtrados.length} movimientos · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`;
+    `<span title="${filtrados.length} movimientos · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`
+    + _avisoFuera('tes', _tesoreria, filtrados, t => t.fecha);
 
   if (filtrados.length === 0) {
     document.getElementById('tes-body').innerHTML = empty('No hay movimientos con esos filtros');
@@ -1615,6 +1643,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=25"></script>
+<script src="manual.js?v=26"></script>
 </body>
 </html>
