@@ -515,6 +515,18 @@ window.ADORNO_SSO = (function () {
   .aviso-fuera { display: inline-block; margin-left: 10px; padding: 2px 12px; border-radius: 999px;
     background: var(--amber-bg); color: var(--amber); font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
   .aviso-fuera:hover { filter: brightness(0.96); text-decoration: underline; }
+  /* (12-nov) Recibos de sueldo con candado — pastillas y panel redondeado (regla de diseño de JP) */
+  .rec-candado { max-width: 440px; margin: 40px auto; padding: 28px 24px; text-align: center;
+    background: var(--surface, #fff); border: 1px solid var(--border, #e7e5e4); border-radius: 26px; }
+  .rec-candado-ico { font-size: 34px; line-height: 1; margin-bottom: 8px; }
+  .rec-candado h3 { margin: 0 0 8px; font-size: 17px; font-weight: 600; }
+  .rec-candado p { margin: 0 0 16px; font-size: 13px; line-height: 1.5; color: var(--muted, #57534e); }
+  .btn-pastilla { border: 0; border-radius: 999px; padding: 10px 22px; font: inherit; font-weight: 600; cursor: pointer;
+    background: var(--primary, #1c1917); color: #fff; }
+  .btn-pastilla:hover { filter: brightness(1.08); }
+  .rec-aut { display: inline-block; margin-left: 10px; padding: 2px 12px; border-radius: 999px; white-space: nowrap;
+    background: var(--surface-2, #f5f5f4); color: var(--text, #1c1917); font-size: 12px; }
+  .rec-aut a { margin-left: 6px; color: var(--primary); font-weight: 600; }
   .ctl.verde { color: var(--green); } .ctl.violeta { color: #7c3aed; }
   .ctl.rechazo { color: #cbd5e1; cursor: pointer; } .ctl.rechazo:hover { color: var(--red); background: var(--red-bg); }
   .doc-link { display: inline-flex; color: var(--primary); padding: 4px; border-radius: 6px; }
@@ -761,11 +773,9 @@ const ALLOWED_EMAILS = [
   'administracion@claudiaadorno.com',
   'claudiaadorno@claudiaadorno.com',
 ];
-// (4-ago, bifurcación JP) Estos usuarios ven todo EXCEPTO Recibos de sueldo:
-const SIN_RECIBOS_EMAILS = [
-  'claudiaadorno@claudiaadorno.com',
-  'rivera.analia.leon@gmail.com',
-];
+// (12-nov-2026, JP vía Infraestructura) Se sacó SIN_RECIBOS_EMAILS. Las compus de Oficina quedan trabadas a dos
+// cuentas genéricas IGUALES (administracion@ = Marisa, claudiaadorno@ = Rivera; rol directora, sin legajo): las dos
+// ven todo, y la pestaña Recibos de sueldo también, pero con CANDADO (ver "Recibos con candado" más abajo).
 // El sistema nuevo arranca en mayo 2026 — documentos anteriores no se listan.
 const RECIBOS_DESDE = '2026-05-01';  // inicio del sistema nuevo — aplica a TODOS los tabs
 // (v49, JP) MODO LOCAL: encargadas y cajeras entran a ver los documentos de SU local (facturas, depósitos,
@@ -785,8 +795,113 @@ function _aplicarModoLocal() {
   document.body.classList.toggle('modo-local', !!MODO_LOCAL);
 }
 function puedeVerRecibos() {
-  if (MODO_LOCAL) return false;
-  return !SIN_RECIBOS_EMAILS.includes((session?.email || '').toLowerCase());
+  return !MODO_LOCAL;   // la pestaña la ve toda Oficina; los DATOS dependen del permiso (_sbRec)
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Recibos con candado (12-nov-2026, JP vía Infraestructura)
+// ═══════════════════════════════════════════════════════════════════════
+// Los recibos de sueldo de todo el personal solo se leen con la sesión de alguien que tenga el permiso
+// hub_puede_ver('recibos') (Marisa con su usuario personal, o un admin). Si la sesión principal ya lo tiene, se usa esa.
+// Si no (las cuentas genéricas de Oficina, o Rivera con su usuario), la pestaña muestra un candado y "Pedir permiso"
+// abre un cliente de Supabase APARTE (persistSession:false, storageKey propio: no toca la sesión del equipo), entra con
+// el usuario personal de quien autoriza (+ código del celular si lo tiene) y con ESE cliente se leen los recibos y se
+// controlan o rechazan firmas. La base exige lo mismo (doc_marcar_control / doc_rechazar_firma con tipo recibo o sac).
+// Nada queda guardado: se cierra al recargar, con "🔒 Cerrar" o solo a las 8 horas.
+// Cuando Infra prenda /hub/autorizar.js (cara → celu → clave), recPedirPermiso pasa a ADORNO_AUTORIZAR.pedir.
+let _recPropio = false;   // la sesión principal ya tiene permiso
+let _recAut = null;       // { cli, nombre, email, hasta, timer } — sesión de quien autorizó, solo en memoria
+let _sbRecAux = null;
+const REC_PERMISO_HORAS = 8;
+function _clienteAutorizar() {
+  if (!_sbRecAux) _sbRecAux = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { persistSession: false, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'documentos-autorizar-aux', flowType: 'implicit' }
+  });
+  return _sbRecAux;
+}
+function _sbRec() {
+  if (_recPropio) return sb;
+  if (_recAut && Date.now() < _recAut.hasta) return _recAut.cli;
+  return null;
+}
+async function _recChequearPropio() {
+  try { const { data } = await sb.rpc('hub_puede_ver', { p_que: 'recibos' }); _recPropio = !!(data && data.ok); }
+  catch (_) { _recPropio = false; }
+}
+async function recBloquear(silencio) {
+  const cli = _recAut && _recAut.cli;
+  if (_recAut && _recAut.timer) clearTimeout(_recAut.timer);
+  _recAut = null; _recibos = [];
+  if (cli) { try { await cli.auth.signOut({ scope: 'local' }); } catch (_) {} }
+  renderRecibos();
+  if (!silencio) toast('🔒 Recibos de sueldo cerrados');
+}
+function _htmlCandadoRecibos() {
+  return `<div class="rec-candado">
+    <div class="rec-candado-ico">🔒</div>
+    <h3>Recibos de sueldo</h3>
+    <p>Los recibos de todo el personal necesitan el permiso de alguien autorizado (Marisa o un administrador),
+      con su usuario personal. No queda guardado en esta computadora.</p>
+    <button type="button" class="btn-pastilla" onclick="recPedirPermiso()">Pedir permiso</button>
+  </div>`;
+}
+function _recInfoAut() {
+  if (_recPropio || !_recAut) return '';
+  const h = new Date(_recAut.hasta).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Argentina/Buenos_Aires' });
+  return ` <span class="rec-aut" title="Habilitado con el usuario de ${escHtml(_recAut.email)}. Se cierra solo a las ${h}.">🔓 ${escHtml(_recAut.nombre)} · hasta ${h}
+    <a href="#" onclick="event.preventDefault();recBloquear()">Cerrar</a></span>`;
+}
+async function recPedirPermiso() {
+  const caja = (window.ADORNO_MFA && ADORNO_MFA.modal) ? ADORNO_MFA.modal('') : null;
+  const o = caja || document.body.appendChild(Object.assign(document.createElement('div'), { className: 'amfa-fondo', style: 'position:fixed;inset:0;z-index:99999;background:rgba(20,18,16,.55);display:flex;align-items:center;justify-content:center;padding:16px;' }));
+  const inner = caja ? o.querySelector('.amfa-caja') : o.appendChild(Object.assign(document.createElement('div'), { className: 'amfa-caja', style: 'background:#fff;border-radius:26px;max-width:380px;width:100%;padding:22px 20px;' }));
+  const est = 'width:100%;box-sizing:border-box;padding:10px 16px;margin:0 0 10px;border:1px solid var(--border,#e7e5e4);border-radius:999px;font-size:15px;';
+  inner.innerHTML = `
+    <h3 style="margin:0 0 8px;font-size:17px;font-weight:600;">🔒 Recibos de sueldo</h3>
+    <p style="font-size:13px;line-height:1.45;color:var(--muted);margin:0 0 12px;">Hace falta el usuario y la clave personal de alguien con permiso para ver los recibos de todos (Marisa o un administrador). Las cuentas de la oficina no sirven. No queda guardado: se cierra solo en ${REC_PERMISO_HORAS} horas.</p>
+    <input class="rec-mail" type="email" autocomplete="username" placeholder="Usuario (mail)" style="${est}">
+    <input class="rec-clave" type="password" autocomplete="current-password" placeholder="Clave" style="${est}">
+    <div class="amfa-error" style="min-height:18px;font-size:12px;color:#b91c1c;margin-bottom:8px;"></div>
+    <div class="amfa-botones" style="display:flex;gap:8px;justify-content:flex-end;"><button type="button" class="amfa-sec">Cancelar</button><button type="button" class="amfa-pri">Autorizar</button></div>`;
+  const mail = inner.querySelector('.rec-mail'), clave = inner.querySelector('.rec-clave'), err = inner.querySelector('.amfa-error'), btn = inner.querySelector('.amfa-pri');
+  setTimeout(() => mail.focus(), 50);
+  return new Promise(listo => {
+    let enCurso = false;
+    const cerrar = (v) => { o.remove(); listo(v); };
+    inner.querySelector('.amfa-sec').onclick = () => cerrar(false);
+    async function probar() {
+      if (enCurso) return;
+      const email = mail.value.trim().toLowerCase(), pass = clave.value;
+      if (!email || !pass) { err.textContent = 'Completá usuario y clave.'; return; }
+      enCurso = true; btn.disabled = true; err.textContent = '';
+      const aux = _clienteAutorizar();
+      let quedo = false;
+      try {
+        const { data, error } = await aux.auth.signInWithPassword({ email, password: pass });
+        if (error || !data?.user) { err.textContent = 'Usuario o clave incorrectos.'; return; }
+        if (window.ADORNO_MFA && !(await ADORNO_MFA.pedirCodigo(aux))) { err.textContent = 'Hace falta el código del celular de esa cuenta.'; return; }
+        const { data: p, error: e2 } = await aux.rpc('hub_puede_ver', { p_que: 'recibos' });
+        if (e2) { err.textContent = 'No pude verificar el permiso: ' + e2.message; return; }
+        if (!p?.ok) { err.textContent = p?.motivo || 'Ese usuario no puede ver los recibos de sueldo.'; return; }
+        if (_recAut && _recAut.timer) clearTimeout(_recAut.timer);
+        const hasta = Date.now() + REC_PERMISO_HORAS * 3600 * 1000;
+        _recAut = { cli: aux, nombre: p.nombre, email: p.email, hasta, timer: setTimeout(() => recBloquear(true), REC_PERMISO_HORAS * 3600 * 1000) };
+        quedo = true;
+        cerrar(true);
+        await cargarRecibos();
+        renderRecibos();
+        toast(`🔓 Recibos habilitados por ${p.nombre}`, 'success');
+      } catch (x) {
+        err.textContent = 'No se pudo verificar: ' + (x.message || x);
+      } finally {
+        if (!quedo) { try { await aux.auth.signOut({ scope: 'local' }); } catch (_) {} }
+        enCurso = false; btn.disabled = false;
+      }
+    }
+    btn.onclick = probar;
+    [mail, clave].forEach(i => i.addEventListener('keydown', ev => { if (ev.key === 'Enter') probar(); }));
+    o.addEventListener('keydown', ev => { if (ev.key === 'Escape') cerrar(false); });
+  });
 }
 function aplicarPermisosTabs() {
   const tabR = document.getElementById('tab-recibos'), tabV = document.getElementById('tab-vacaciones');
@@ -994,10 +1109,13 @@ function chipControl(tipo, id, controlado, por, at) {
 }
 
 async function marcarControl(tipo, id, valor) {
+  // (12-nov) recibos de sueldo y SAC: con la sesión de quien autorizó (la base lo exige)
+  const cli = (tipo === 'recibo' || tipo === 'sac') ? _sbRec() : sb;
+  if (!cli) { toast('🔒 Primero pedí permiso para los recibos de sueldo', 'error'); return; }
   if (!valor && !confirm('¿Quitar el control de este documento?')) return;
   if (valor && !confirm('¿Marcar como controlado?\n\nEl tilde queda fijo: solo el administrador puede sacarlo.')) return;
   try {
-    const { error } = await sb.rpc('doc_marcar_control', { p_tipo: tipo, p_id: id, p_valor: valor });
+    const { error } = await cli.rpc('doc_marcar_control', { p_tipo: tipo, p_id: id, p_valor: valor });
     if (error) throw error;
     toast(valor ? '☑ Controlado' : 'Control quitado');
     await cargarTodo();
@@ -1005,6 +1123,7 @@ async function marcarControl(tipo, id, valor) {
 }
 
 async function doLogout() {
+  if (_recAut) await recBloquear(true);   // (12-nov) cerrar también la sesión de quien autorizó recibos
   await sb.auth.signOut();
   location.reload();
 }
@@ -1052,6 +1171,7 @@ async function cargarTodo() {
     _categorias = Object.fromEntries((cats || []).map(c => [c.id, c.nombre]));
 
     await detectarAdmin();
+    if (!MODO_LOCAL) await _recChequearPropio();   // (12-nov) ¿la sesión principal ya puede ver recibos?
     await Promise.all(MODO_LOCAL
       ? [cargarTesoreria(), cargarFacturas()]
       : [cargarRecibos(), cargarVacaciones(), cargarTesoreria(), cargarFacturas()]);
@@ -1061,13 +1181,14 @@ async function cargarTodo() {
 }
 
 async function cargarRecibos() {
-  if (!puedeVerRecibos()) { _recibos = []; return; }
+  const cli = puedeVerRecibos() ? _sbRec() : null;   // (12-nov) sin permiso no se pide nada a la base
+  if (!cli) { _recibos = []; if (puedeVerRecibos()) renderRecibos(); return; }   // dibuja el candado
   // Trae las liquidaciones con info de la empleada.
   // NOTA: la columna del neto se llama `recibo_neto` (no total_neto).
   // (jul 2026) Solo recibos DEFINITIVOS: las liquidaciones en 'borrador' son
   // la proforma del mes en curso y no corresponde que se vean acá — antes
   // aparecían los 20 de julio sin firmar, sin que existiera todavía el recibo.
-  const { data, error } = await sb.from('rrhh_liquidacion')
+  const { data, error } = await cli.from('rrhh_liquidacion')
     .select('id, periodo, empleado_id, recibo_neto, pdf_firmado_at, pdf_url_firmado, pdf_url, local, estado, controlado, controlado_por, controlado_at, firma_rechazada_at, '
           + 'sac_recibo_neto, sac_pdf_firmado_at, sac_pdf_firmado_path, sac_controlado, sac_controlado_por, sac_controlado_at, sac_firma_rechazada_at')
     .eq('tipo', 'definitivo')  // (5-ago) definitivos, sin importar estado del workflow
@@ -1308,6 +1429,12 @@ ${escHtml(f.archivo_nombre || '')}">${_ICO.alerta}</span>`;
 }
 
 function renderRecibos() {
+  if (!_sbRec()) {   // (12-nov) candado: sin permiso no hay datos ni número en la pestaña
+    _cntTab('cnt-recibos', []);
+    document.getElementById('rec-stat').innerHTML = '';
+    document.getElementById('rec-body').innerHTML = _htmlCandadoRecibos();
+    return;
+  }
   const anio = document.getElementById('rec-anio').value;
   const empId = document.getElementById('rec-empleado').value;
   const estado = document.getElementById('rec-estado').value;
@@ -1329,7 +1456,7 @@ function renderRecibos() {
   const firmados = filtrados.filter(r => r.pdf_firmado_at).length;
   document.getElementById('rec-stat').innerHTML =
     `<span title="${filtrados.length} recibos · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`
-    + _avisoFuera('rec', _recibos, filtrados, r => r.periodo);
+    + _avisoFuera('rec', _recibos, filtrados, r => r.periodo) + _recInfoAut();
 
   if (filtrados.length === 0) {
     document.getElementById('rec-body').innerHTML = empty('No hay recibos con esos filtros');
@@ -1595,7 +1722,10 @@ async function docRechazarFirma(tipo, id) {
   const motivo = prompt('¿Por qué se rechaza esta firma?\n(el motivo le llega a la encargada del local para rehacerla)');
   if (motivo === null) return;
   if (!confirm('El documento vuelve a "Sin firma" y se le avisa al local. ¿Confirmás?')) return;
-  const { data, error } = await sb.rpc('doc_rechazar_firma', { p_tipo: tipo, p_id: id, p_motivo: motivo || '' });
+  // (12-nov) recibos de sueldo y SAC: con la sesión de quien autorizó (la base lo exige)
+  const cli = (tipo === 'recibo' || tipo === 'sac') ? _sbRec() : sb;
+  if (!cli) { toast('🔒 Primero pedí permiso para los recibos de sueldo', 'error'); return; }
+  const { data, error } = await cli.rpc('doc_rechazar_firma', { p_tipo: tipo, p_id: id, p_motivo: motivo || '' });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   toast('✍ Firma rechazada — se avisó a ' + ((data && data.local) || 'el local') + ' para rehacerla' + ((data && data.borrar_path) ? '. El PDF se borra del OneDrive en unos minutos.' : ''));
   cargarTodo();
@@ -1646,6 +1776,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=29"></script>
+<script src="manual.js?v=30"></script>
 </body>
 </html>
