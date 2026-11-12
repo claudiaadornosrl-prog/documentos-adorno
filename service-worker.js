@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v77-recibos-sin-barra';
+const CACHE_VERSION = 'docs-v78-equipo-superior';   // (infra 12-nov) toma /hub/seguridad.js nuevo (equipo.js v5)
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
