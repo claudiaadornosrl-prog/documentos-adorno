@@ -28,6 +28,7 @@ function _manualSecciones() {
       desc: 'Control de las firmas de los recibos mensuales y SAC, local por local.',
       pasos: [
         '🔒 Esta pestaña tiene candado. En las computadoras de la oficina (administracion@ y claudiaadorno@) se ve el candado y el botón "Pedir permiso": ahí escribe su usuario y clave personal alguien con permiso para ver los recibos de todos (Marisa o un administrador), más el código del celular si esa cuenta lo tiene. Las cuentas de la oficina no sirven para autorizar, y Analía con su usuario tampoco.',
+        'Sin el permiso no se ve nada de la pestaña: ni la lista, ni los filtros, ni el número de pendientes. Solo el candado.',
         'Con el permiso, los recibos se ven y se pueden controlar o rechazar por 8 horas. Arriba de la lista dice quién habilitó y hasta qué hora; "Cerrar" lo vuelve a trabar en el momento. Al recargar la página también se traba. No queda nada guardado en la computadora.',
         'Si entrás con tu propio usuario y ya tenés el permiso (Marisa o un administrador), no aparece el candado.',
         'Filtrás por año y período; cada fila muestra si el recibo ya volvió firmado (✓) o sigue pendiente.',

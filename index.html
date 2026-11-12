@@ -833,6 +833,10 @@ async function recBloquear(silencio) {
   if (_recAut && _recAut.timer) clearTimeout(_recAut.timer);
   _recAut = null; _recibos = [];
   if (cli) { try { await cli.auth.signOut({ scope: 'local' }); } catch (_) {} }
+  // que no quede nada de la sesión anterior en los filtros (años, nombres, búsqueda)
+  document.getElementById('rec-anio').innerHTML = '';
+  document.getElementById('rec-empleado').innerHTML = '<option value="">Todas</option>';
+  document.getElementById('rec-buscar').value = ''; _docBusq.rec = '';
   renderRecibos();
   if (!silencio) toast('🔒 Recibos de sueldo cerrados');
 }
@@ -1429,12 +1433,17 @@ ${escHtml(f.archivo_nombre || '')}">${_ICO.alerta}</span>`;
 }
 
 function renderRecibos() {
-  if (!_sbRec()) {   // (12-nov) candado: sin permiso no hay datos ni número en la pestaña
+  // (12-nov, JP: "que no te dejen ni ver la tabla hasta que lo valide un usuario superior") con candado no se ve
+  // nada de la tabla: ni datos, ni número en la pestaña, ni la barra de filtros (año, lista de empleadas, buscador).
+  const barraRec = document.querySelector('#content-recibos .filters');
+  if (!_sbRec()) {
+    if (barraRec) barraRec.style.display = 'none';
     _cntTab('cnt-recibos', []);
     document.getElementById('rec-stat').innerHTML = '';
     document.getElementById('rec-body').innerHTML = _htmlCandadoRecibos();
     return;
   }
+  if (barraRec) barraRec.style.display = '';
   const anio = document.getElementById('rec-anio').value;
   const empId = document.getElementById('rec-empleado').value;
   const estado = document.getElementById('rec-estado').value;
@@ -1776,6 +1785,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=30"></script>
+<script src="manual.js?v=31"></script>
 </body>
 </html>
