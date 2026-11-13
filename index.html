@@ -1041,14 +1041,27 @@ async function doLogin() {
 }
 
 let esAdmin = false;
+let esOficinaGenerica = false;   // (13-nov) administracion@ / claudiaadorno@: rol directora sin legajo
 async function detectarAdmin() {
   try {
     const { data } = await sb.rpc('rrhh_current_user');
     esAdmin = data?.rol === 'admin';
-  } catch (_) { esAdmin = false; }
+    esOficinaGenerica = data?.rol === 'directora' && !data?.empleado_id;
+  } catch (_) { esAdmin = false; esOficinaGenerica = false; }
+}
+// (13-nov-2026, JP) Quién puede tildar el control — el mismo criterio que doc_marcar_control en la base:
+//  · recibos de sueldo y SAC: solo con el permiso de recibos (Marisa con su usuario personal, o un admin), propio o
+//    pedido con el candado → _sbRec();
+//  · todo lo demás: la cuenta de la oficina (administracion@ / claudiaadorno@) o un admin. Con usuario personal o
+//    cuenta de local el tilde se ve como estado, sin poder tocarlo (la base lo rechazaría).
+function puedeControlar(tipo) {
+  if (MODO_LOCAL) return false;
+  if (tipo === 'recibo' || tipo === 'sac') return !!_sbRec();
+  return esAdmin || esOficinaGenerica;
 }
 
-// ── Tilde de control: cualquiera lo pone; SOLO el admin lo puede sacar ──
+// ── Tilde de control: lo pone la cuenta de la oficina o un admin (recibos: con el permiso de Marisa) — ver
+//    puedeControlar(); SOLO el admin lo puede sacar ──
 // (13-oct, JP) el contador de la pestaña = cuántos faltan controlar (vacío si no falta ninguno)
 function _cntTab(id, lista) {
   const n = MODO_LOCAL ? (lista || []).filter(x => x.observacion_control).length : (lista || []).filter(x => !x.controlado).length;
@@ -1100,6 +1113,14 @@ function chipControl(tipo, id, controlado, por, at) {
   }
   const ok = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/><polyline points="8 12 11 15 16 9"/></svg>';
   const vacio = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="4"/></svg>';
+  if (!puedeControlar(tipo)) {   // (13-nov) solo se muestra el estado, sin tilde para tocar
+    if (controlado) {
+      const info = `Controlado por ${por || '?'} el ${at ? new Date(at).toLocaleDateString('es-AR') : '?'}`;
+      return `<span class="ctl ok" title="${escHtml(info)}">${_ICO.ok}</span>`;
+    }
+    const quien = (tipo === 'recibo' || tipo === 'sac') ? 'con el permiso de Marisa' : 'desde la cuenta de la oficina (administracion@ o claudiaadorno@)';
+    return `<span class="ctl" title="Sin controlar — se controla ${quien}">${_ICO.punto}</span>`;
+  }
   if (controlado) {
     const info = `Controlado por ${por || '?'} el ${at ? new Date(at).toLocaleDateString('es-AR') : '?'}`;
     if (esAdmin) {
@@ -1116,6 +1137,7 @@ async function marcarControl(tipo, id, valor) {
   // (12-nov) recibos de sueldo y SAC: con la sesión de quien autorizó (la base lo exige)
   const cli = (tipo === 'recibo' || tipo === 'sac') ? _sbRec() : sb;
   if (!cli) { toast('🔒 Primero pedí permiso para los recibos de sueldo', 'error'); return; }
+  if (!puedeControlar(tipo)) { toast('Los controles se hacen desde la cuenta de la oficina', 'error'); return; }
   if (!valor && !confirm('¿Quitar el control de este documento?')) return;
   if (valor && !confirm('¿Marcar como controlado?\n\nEl tilde queda fijo: solo el administrador puede sacarlo.')) return;
   try {
@@ -1785,6 +1807,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=31"></script>
+<script src="manual.js?v=32"></script>
 </body>
 </html>

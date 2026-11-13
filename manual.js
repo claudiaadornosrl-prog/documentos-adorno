@@ -82,7 +82,9 @@ function _manualSecciones() {
       icon: '☑', titulo: 'Columna Control (todas las pestañas)',
       desc: 'El tilde de "esto ya lo revisé" que comparte todo el equipo.',
       pasos: [
-        'Cualquier usuaria puede marcar ☑ un documento como controlado — queda registrado quién y cuándo.',
+        'El tilde ☑ se pone desde la cuenta de la oficina (administracion@ o claudiaadorno@) o un administrador — queda registrado quién y cuándo. Vale para vacaciones, recibos de tesorería, facturas y depósitos.',
+        'Los recibos de sueldo y los SAC se controlan solo con el permiso de Marisa: con su usuario personal, o abriendo el candado de la pestaña Recibos.',
+        'Si entrás con tu usuario personal (o con la cuenta de un local), la columna Control muestra el estado pero no se puede tocar: ✔ ya controlado, punto gris = falta controlar. Para controlar, usá la cuenta de la oficina.',
         'Solo el admin puede desmarcarlo.',
         'Todas las tablas tienen buscador y se ordenan tocando el encabezado de la columna.',
         'El número al lado de cada pestaña cuenta TODO lo que falta controlar, de cualquier año. La lista, en cambio, muestra solo lo que pasa los filtros (año, empleada o caja, estado, buscador).',
