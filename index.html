@@ -527,6 +527,10 @@ window.ADORNO_SSO = (function () {
   .rec-aut { display: inline-block; margin-left: 10px; padding: 2px 12px; border-radius: 999px; white-space: nowrap;
     background: var(--surface-2, #f5f5f4); color: var(--text, #1c1917); font-size: 12px; }
   .rec-aut a { margin-left: 6px; color: var(--primary); font-weight: 600; }
+  /* (13-nov) local en el que se trabaja, para quien tiene varios — pastilla */
+  .sel-local { border-radius: 999px; padding: 2px 12px; border: 1px solid rgba(255,255,255,.5); background: rgba(255,255,255,.15);
+    color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+  .sel-local option { color: #1c1917; }
   .ctl.verde { color: var(--green); } .ctl.violeta { color: #7c3aed; }
   .ctl.rechazo { color: #cbd5e1; cursor: pointer; } .ctl.rechazo:hover { color: var(--red); background: var(--red-bg); }
   .doc-link { display: inline-flex; color: var(--primary); padding: 4px; border-radius: 6px; }
@@ -765,7 +769,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
 })('documentos');
 
 
-// Allowlist de emails (también está en RLS pero acá da error claro)
+// Allowlist de emails — (13-nov) solo de RESPALDO si el Hub no responde; el acceso lo dan los permisos del Hub
 const ALLOWED_EMAILS = [
   'marisaisabel07@yahoo.com.ar',
   'rivera.analia.leon@gmail.com',
@@ -782,7 +786,55 @@ const RECIBOS_DESDE = '2026-05-01';  // inicio del sistema nuevo — aplica a TO
 // recibos de Tesorería), solo lectura, con lo observado por Oficina resaltado. Nada de recibos de sueldo ni vacaciones.
 let MODO_LOCAL = null;   // null = Oficina · 'alcorta' | 'unicenter' | 'oficina' = local de la encargada/cajera
 const NOMBRE_LOCAL = { alcorta: 'Alcorta', unicenter: 'Unicenter', oficina: 'Oficina' };
+// ═══════════════════════════════════════════════════════════════════════
+// Permisos por función desde el Hub (13-nov-2026, JP · Hub → 👤 → Permisos)
+// ═══════════════════════════════════════════════════════════════════════
+// hub_puedo(id) con la sesión del usuario: 'h' habilitada · 'a' pide permiso a un usuario superior · 'o' oculta
+// (admin siempre 'h'; si el perfil no ve el módulo, 'o'). hub_mis_locales(): los locales de la persona.
+// Sin 'doc.ver_otros_locales' se trabaja en UN local (con varios, se elige arriba). Lo que graba en la base lo vuelve
+// a chequear la función con hub_puedo. Excepciones que quedan como JP las pidió:
+//  · Recibos de sueldo: el candado se abre con hub_puede_ver('recibos') (Marisa con su personal, o un admin).
+//  · Tildar: además de 'doc.controlar', la base exige cuenta de la oficina o admin (13-nov, "lo demás se opera con las
+//    genéricas de la oficina"), así que con usuario personal el tilde no se muestra aunque el perfil lo habilite.
+const DOC_FUNCIONES = ['doc.facturas', 'doc.depositos', 'doc.recibos_tes', 'doc.observados', 'doc.controlar', 'doc.observar',
+  'doc.quitar_control', 'doc.recibos_sueldo', 'doc.vacaciones', 'doc.ver_otros_locales'];
+const DOC_FN_POR_LOCAL = new Set(['doc.facturas', 'doc.depositos', 'doc.recibos_tes', 'doc.observados']);
+const DOC_FN_NOMBRE = {
+  'doc.facturas': 'Facturas y tickets', 'doc.depositos': 'Depósitos', 'doc.recibos_tes': 'Recibos de Tesorería',
+  'doc.observados': 'Lo observado por la oficina', 'doc.controlar': 'Tildar como controlado',
+  'doc.observar': 'Observar o rechazar', 'doc.quitar_control': 'Sacar un control', 'doc.vacaciones': 'Vacaciones',
+};
+let _perm = null;          // id → 'h' | 'a' | 'o' — null = el Hub no respondió (se usa el criterio de antes)
+let _misLocales = [];
+function perm(id) { return _perm ? (_perm[id] || 'o') : _permViejo(id); }
+function _permViejo(id) {  // lo mismo que hacía el módulo antes del 13-nov, por si el Hub no contesta
+  if (MODO_LOCAL) return DOC_FN_POR_LOCAL.has(id) ? 'h' : 'o';
+  if (id === 'doc.quitar_control') return esAdmin ? 'h' : 'o';
+  if (id === 'doc.recibos_sueldo') return 'a';
+  return 'h';
+}
+async function cargarPermisosHub() {
+  try {
+    const rs = await Promise.all(DOC_FUNCIONES.map(f => sb.rpc('hub_puedo', { p_funcion: f })));
+    const e = rs.find(r => r.error); if (e) throw e.error;
+    const p = {};
+    rs.forEach((r, i) => { p[DOC_FUNCIONES[i]] = ['h', 'a', 'o'].includes(r.data) ? r.data : 'o'; });
+    const l = await sb.rpc('hub_mis_locales'); if (l.error) throw l.error;
+    _perm = p; _misLocales = (l.data || []).map(x => String(x).toLowerCase());
+    return true;
+  } catch (err) { console.warn('Documentos: permisos del Hub no disponibles, criterio de antes', err); _perm = null; _misLocales = []; return false; }
+}
+const DOC_FN_VER = ['doc.facturas', 'doc.depositos', 'doc.recibos_tes', 'doc.recibos_sueldo', 'doc.vacaciones'];
 async function resolverModo(email) {
+  if (!(await cargarPermisosHub())) return resolverModoViejo(email);
+  if (!DOC_FN_VER.some(f => perm(f) !== 'o')) return null;                       // el perfil no ve Documentos
+  if (perm('doc.ver_otros_locales') === 'h') { MODO_LOCAL = null; return 'oficina'; }   // todos los locales
+  if (!_misLocales.length) return null;
+  let elegido = null; try { elegido = localStorage.getItem('docs-local'); } catch (_) {}
+  MODO_LOCAL = _misLocales.includes(elegido) ? elegido : _misLocales[0];
+  return MODO_LOCAL;
+}
+async function resolverModoViejo(email) {
   if (ALLOWED_EMAILS.includes((email || '').toLowerCase())) { MODO_LOCAL = null; return 'oficina'; }
   const [g, c] = await Promise.all([sb.rpc('tesoreria_gerente_local'), sb.rpc('tesoreria_cajera_local')]);
   const loc = (g.data || c.data || '').toLowerCase();
@@ -791,11 +843,97 @@ async function resolverModo(email) {
 }
 function _aplicarModoLocal() {
   const h = document.getElementById('hdr-local');
-  if (h) h.textContent = MODO_LOCAL ? (NOMBRE_LOCAL[MODO_LOCAL] || MODO_LOCAL) : '';   // (11-nov, banner común) va como subtítulo, sin el punto
+  if (h) {
+    if (MODO_LOCAL && _perm && _misLocales.length > 1) {   // (13-nov) varios locales: elige en cuál está trabajando
+      h.innerHTML = `<select class="sel-local" onchange="cambiarLocal(this.value)" title="Local en el que estás trabajando">`
+        + _misLocales.map(l => `<option value="${escHtml(l)}"${l === MODO_LOCAL ? ' selected' : ''}>${escHtml(NOMBRE_LOCAL[l] || l)}</option>`).join('')
+        + `</select>`;
+    } else {
+      h.textContent = MODO_LOCAL ? (NOMBRE_LOCAL[MODO_LOCAL] || MODO_LOCAL) : '';   // (11-nov, banner común) subtítulo, sin el punto
+    }
+  }
   document.body.classList.toggle('modo-local', !!MODO_LOCAL);
 }
+function cambiarLocal(l) {
+  if (!_misLocales.includes(l)) return;
+  MODO_LOCAL = l;
+  try { localStorage.setItem('docs-local', l); } catch (_) {}
+  cargarTodo();
+}
+// Con 'a': quién autorizó cada función (8 h, solo en memoria). Para las acciones se guarda el cliente de quien
+// autorizó, porque la base chequea el permiso con ESA sesión.
+let _autDoc = {};   // funcion → { cli, nombre, email, hasta, timer }
+const DOC_PERMISO_HORAS = 8;
+function _autVigente(f) { const a = _autDoc[f]; return !!(a && Date.now() < a.hasta); }
+function puedeVer(f) { const p = perm(f); return p === 'h' || (p === 'a' && _autVigente(f)); }
+async function quitarAutorizacion(f) {
+  const a = _autDoc[f]; if (!a) return;
+  if (a.timer) clearTimeout(a.timer);
+  delete _autDoc[f];
+  if (a.cli) { try { await a.cli.auth.signOut({ scope: 'local' }); } catch (_) {} }
+  if (session) cargarTodo();
+}
+// Pide el usuario superior para una función con 'a': autoriza quien, con SU sesión, tiene hub_puedo(f) = 'h'
+// (y, si la función es "en su local", ese local entre los suyos). conCliente = se queda con la sesión para operar.
+async function pedirPermisoFuncion(f, conCliente) {
+  const local = DOC_FN_POR_LOCAL.has(f) ? MODO_LOCAL : null;
+  const r = await pedirSuperior({
+    titulo: '🔒 ' + (DOC_FN_NOMBRE[f] || 'Pedir permiso'),
+    texto: 'Hace falta el usuario y la clave personal de alguien habilitado para esto'
+      + (local ? ' en ' + (NOMBRE_LOCAL[local] || local) : '') + `. No queda guardado: se cierra solo en ${DOC_PERMISO_HORAS} horas.`,
+    clave: 'documentos-autorizar-' + f.replace(/\W/g, '-'),
+    validar: async (aux) => {
+      const { data: p, error } = await aux.rpc('hub_puedo', { p_funcion: f });
+      if (error) return { ok: false, motivo: 'No pude verificar el permiso: ' + error.message };
+      if (p !== 'h') return { ok: false, motivo: 'Ese usuario no tiene habilitado esto.' };
+      if (local) {
+        const { data: ls } = await aux.rpc('hub_mis_locales');
+        if (!(ls || []).map(x => String(x).toLowerCase()).includes(local)) return { ok: false, motivo: `Ese usuario no tiene ${NOMBRE_LOCAL[local] || local} entre sus locales.` };
+      }
+      const { data: q } = await aux.rpc('hub_puede_ver', { p_que: f });   // solo para el nombre de quien autoriza
+      return { ok: true, nombre: (q && q.nombre) || (q && q.email) || '', email: (q && q.email) || '' };
+    },
+  });
+  if (!r) return false;
+  if (_autDoc[f] && _autDoc[f].timer) clearTimeout(_autDoc[f].timer);
+  if (!conCliente) { try { await r.cli.auth.signOut({ scope: 'local' }); } catch (_) {} }
+  _autDoc[f] = { cli: conCliente ? r.cli : null, nombre: r.nombre, email: r.email, hasta: Date.now() + DOC_PERMISO_HORAS * 3600 * 1000,
+    timer: setTimeout(() => quitarAutorizacion(f), DOC_PERMISO_HORAS * 3600 * 1000) };
+  toast(`🔓 ${DOC_FN_NOMBRE[f] || 'Permiso'}: habilitado por ${r.nombre}`, 'success');
+  if (!conCliente) cargarTodo();
+  return true;
+}
+// Cliente con el que se hace una acción de la función f: la sesión propia si está habilitada; con 'a', la de quien
+// autorizó (si no hay, la pide ahora). null = no se puede.
+async function _cliPara(f) {
+  const p = perm(f);
+  if (p === 'h') return sb;
+  if (p === 'a') {
+    if (!(_autVigente(f) && _autDoc[f].cli) && !(await pedirPermisoFuncion(f, true))) return null;
+    return _autDoc[f].cli;
+  }
+  return null;
+}
+function _htmlCandadoFuncion(f) {
+  return `<div class="rec-candado">
+    <div class="rec-candado-ico">🔒</div>
+    <h3>${escHtml(DOC_FN_NOMBRE[f] || 'Con permiso')}</h3>
+    <p>Para ver esto hace falta el permiso de alguien habilitado, con su usuario personal. No queda guardado en esta computadora.</p>
+    <button type="button" class="btn-pastilla" onclick="pedirPermisoFuncion('${f}', false)">Pedir permiso</button>
+  </div>`;
+}
+// Pestaña con candado por 'a' (o sin permiso): esconde la barra de filtros y muestra el candado. true = ya dibujó.
+function _candadoTab(f, seccion, pre, cntId) {
+  const barra = document.querySelector(`#content-${seccion} .filters`);
+  if (puedeVer(f)) { if (barra) barra.style.display = ''; return false; }
+  if (barra) barra.style.display = 'none';
+  _cntTab(cntId, []);
+  document.getElementById(pre + '-stat').innerHTML = '';
+  document.getElementById(pre + '-body').innerHTML = perm(f) === 'a' ? _htmlCandadoFuncion(f) : empty('No tenés permiso para ver esto');
+  return true;
+}
 function puedeVerRecibos() {
-  return !MODO_LOCAL;   // la pestaña la ve toda Oficina; los DATOS dependen del permiso (_sbRec)
+  return !MODO_LOCAL && perm('doc.recibos_sueldo') !== 'o';   // los DATOS dependen del candado (_sbRec)
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -811,14 +949,7 @@ function puedeVerRecibos() {
 // Cuando Infra prenda /hub/autorizar.js (cara → celu → clave), recPedirPermiso pasa a ADORNO_AUTORIZAR.pedir.
 let _recPropio = false;   // la sesión principal ya tiene permiso
 let _recAut = null;       // { cli, nombre, email, hasta, timer } — sesión de quien autorizó, solo en memoria
-let _sbRecAux = null;
-const REC_PERMISO_HORAS = 8;
-function _clienteAutorizar() {
-  if (!_sbRecAux) _sbRecAux = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-    auth: { persistSession: false, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'documentos-autorizar-aux', flowType: 'implicit' }
-  });
-  return _sbRecAux;
-}
+const REC_PERMISO_HORAS = 8;   // (13-nov) el cliente aparte lo crea pedirSuperior()
 function _sbRec() {
   if (_recPropio) return sb;
   if (_recAut && Date.now() < _recAut.hasta) return _recAut.cli;
@@ -855,46 +986,46 @@ function _recInfoAut() {
   return ` <span class="rec-aut" title="Habilitado con el usuario de ${escHtml(_recAut.email)}. Se cierra solo a las ${h}.">🔓 ${escHtml(_recAut.nombre)} · hasta ${h}
     <a href="#" onclick="event.preventDefault();recBloquear()">Cerrar</a></span>`;
 }
-async function recPedirPermiso() {
+// Ventana común de "usuario superior" (13-nov): usuario + clave PERSONAL en un cliente aparte (persistSession:false,
+// storageKey propio), código del celular si la cuenta lo tiene, y validar(aux) decide. Devuelve { cli, nombre, email }
+// con la sesión de quien autorizó todavía abierta (la cierra quien llama) o null. data-adorno-superior: para que la
+// traba del equipo (/hub/equipo.js) deje escribir el usuario personal acá.
+async function pedirSuperior({ titulo, texto, validar, clave: storageKey }) {
   const caja = (window.ADORNO_MFA && ADORNO_MFA.modal) ? ADORNO_MFA.modal('') : null;
   const o = caja || document.body.appendChild(Object.assign(document.createElement('div'), { className: 'amfa-fondo', style: 'position:fixed;inset:0;z-index:99999;background:rgba(20,18,16,.55);display:flex;align-items:center;justify-content:center;padding:16px;' }));
+  o.setAttribute('data-adorno-superior', '1');
   const inner = caja ? o.querySelector('.amfa-caja') : o.appendChild(Object.assign(document.createElement('div'), { className: 'amfa-caja', style: 'background:#fff;border-radius:26px;max-width:380px;width:100%;padding:22px 20px;' }));
   const est = 'width:100%;box-sizing:border-box;padding:10px 16px;margin:0 0 10px;border:1px solid var(--border,#e7e5e4);border-radius:999px;font-size:15px;';
   inner.innerHTML = `
-    <h3 style="margin:0 0 8px;font-size:17px;font-weight:600;">🔒 Recibos de sueldo</h3>
-    <p style="font-size:13px;line-height:1.45;color:var(--muted);margin:0 0 12px;">Hace falta el usuario y la clave personal de alguien con permiso para ver los recibos de todos (Marisa o un administrador). Las cuentas de la oficina no sirven. No queda guardado: se cierra solo en ${REC_PERMISO_HORAS} horas.</p>
+    <h3 style="margin:0 0 8px;font-size:17px;font-weight:600;">${escHtml(titulo)}</h3>
+    <p style="font-size:13px;line-height:1.45;color:var(--muted);margin:0 0 12px;">${escHtml(texto)}</p>
     <input class="rec-mail" type="email" autocomplete="username" placeholder="Usuario (mail)" style="${est}">
     <input class="rec-clave" type="password" autocomplete="current-password" placeholder="Clave" style="${est}">
     <div class="amfa-error" style="min-height:18px;font-size:12px;color:#b91c1c;margin-bottom:8px;"></div>
     <div class="amfa-botones" style="display:flex;gap:8px;justify-content:flex-end;"><button type="button" class="amfa-sec">Cancelar</button><button type="button" class="amfa-pri">Autorizar</button></div>`;
-  const mail = inner.querySelector('.rec-mail'), clave = inner.querySelector('.rec-clave'), err = inner.querySelector('.amfa-error'), btn = inner.querySelector('.amfa-pri');
+  const mail = inner.querySelector('.rec-mail'), claveIn = inner.querySelector('.rec-clave'), err = inner.querySelector('.amfa-error'), btn = inner.querySelector('.amfa-pri');
   setTimeout(() => mail.focus(), 50);
   return new Promise(listo => {
     let enCurso = false;
     const cerrar = (v) => { o.remove(); listo(v); };
-    inner.querySelector('.amfa-sec').onclick = () => cerrar(false);
+    inner.querySelector('.amfa-sec').onclick = () => cerrar(null);
     async function probar() {
       if (enCurso) return;
-      const email = mail.value.trim().toLowerCase(), pass = clave.value;
+      const email = mail.value.trim().toLowerCase(), pass = claveIn.value;
       if (!email || !pass) { err.textContent = 'Completá usuario y clave.'; return; }
       enCurso = true; btn.disabled = true; err.textContent = '';
-      const aux = _clienteAutorizar();
+      const aux = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+        auth: { persistSession: false, autoRefreshToken: true, detectSessionInUrl: false, storageKey: storageKey || 'documentos-autorizar-aux', flowType: 'implicit' }
+      });
       let quedo = false;
       try {
         const { data, error } = await aux.auth.signInWithPassword({ email, password: pass });
         if (error || !data?.user) { err.textContent = 'Usuario o clave incorrectos.'; return; }
         if (window.ADORNO_MFA && !(await ADORNO_MFA.pedirCodigo(aux))) { err.textContent = 'Hace falta el código del celular de esa cuenta.'; return; }
-        const { data: p, error: e2 } = await aux.rpc('hub_puede_ver', { p_que: 'recibos' });
-        if (e2) { err.textContent = 'No pude verificar el permiso: ' + e2.message; return; }
-        if (!p?.ok) { err.textContent = p?.motivo || 'Ese usuario no puede ver los recibos de sueldo.'; return; }
-        if (_recAut && _recAut.timer) clearTimeout(_recAut.timer);
-        const hasta = Date.now() + REC_PERMISO_HORAS * 3600 * 1000;
-        _recAut = { cli: aux, nombre: p.nombre, email: p.email, hasta, timer: setTimeout(() => recBloquear(true), REC_PERMISO_HORAS * 3600 * 1000) };
+        const v = await validar(aux);
+        if (!v || !v.ok) { err.textContent = (v && v.motivo) || 'Ese usuario no puede autorizar esto.'; return; }
         quedo = true;
-        cerrar(true);
-        await cargarRecibos();
-        renderRecibos();
-        toast(`🔓 Recibos habilitados por ${p.nombre}`, 'success');
+        cerrar({ cli: aux, nombre: v.nombre || email, email: v.email || email });
       } catch (x) {
         err.textContent = 'No se pudo verificar: ' + (x.message || x);
       } finally {
@@ -903,26 +1034,47 @@ async function recPedirPermiso() {
       }
     }
     btn.onclick = probar;
-    [mail, clave].forEach(i => i.addEventListener('keydown', ev => { if (ev.key === 'Enter') probar(); }));
-    o.addEventListener('keydown', ev => { if (ev.key === 'Escape') cerrar(false); });
+    [mail, claveIn].forEach(i => i.addEventListener('keydown', ev => { if (ev.key === 'Enter') probar(); }));
+    o.addEventListener('keydown', ev => { if (ev.key === 'Escape') cerrar(null); });
   });
 }
+async function recPedirPermiso() {
+  const r = await pedirSuperior({
+    titulo: '🔒 Recibos de sueldo',
+    texto: `Hace falta el usuario y la clave personal de alguien con permiso para ver los recibos de todos (Marisa o un administrador). Las cuentas de la oficina no sirven. No queda guardado: se cierra solo en ${REC_PERMISO_HORAS} horas.`,
+    clave: 'documentos-autorizar-aux',
+    validar: async (aux) => {
+      const { data: p, error } = await aux.rpc('hub_puede_ver', { p_que: 'recibos' });
+      if (error) return { ok: false, motivo: 'No pude verificar el permiso: ' + error.message };
+      if (!p?.ok) return { ok: false, motivo: p?.motivo || 'Ese usuario no puede ver los recibos de sueldo.' };
+      return { ok: true, nombre: p.nombre, email: p.email };
+    },
+  });
+  if (!r) return false;
+  if (_recAut && _recAut.timer) clearTimeout(_recAut.timer);
+  if (_recAut && _recAut.cli && _recAut.cli !== r.cli) { try { await _recAut.cli.auth.signOut({ scope: 'local' }); } catch (_) {} }
+  const hasta = Date.now() + REC_PERMISO_HORAS * 3600 * 1000;
+  _recAut = { cli: r.cli, nombre: r.nombre, email: r.email, hasta, timer: setTimeout(() => recBloquear(true), REC_PERMISO_HORAS * 3600 * 1000) };
+  await cargarRecibos();
+  renderRecibos();
+  toast(`🔓 Recibos habilitados por ${r.nombre}`, 'success');
+  return true;
+}
+// (13-nov) pestañas según los permisos del Hub: 'o' = oculta; 'h' o 'a' = se ve ('a' con candado adentro).
+const DOC_TAB_FN = { recibos: 'doc.recibos_sueldo', vacaciones: 'doc.vacaciones', tesoreria: 'doc.recibos_tes',
+  facturas: 'doc.facturas', depositos: 'doc.depositos' };
 function aplicarPermisosTabs() {
-  const tabR = document.getElementById('tab-recibos'), tabV = document.getElementById('tab-vacaciones');
   _aplicarModoLocal();
-  if (MODO_LOCAL) {
-    tabR.style.display = 'none'; tabV.style.display = 'none';
-    if (tabR.classList.contains('active') || tabV.classList.contains('active')) switchTab('facturas');
-    return;
+  let primera = null, activaOculta = false;
+  for (const [tab, f] of Object.entries(DOC_TAB_FN)) {
+    const btn = document.getElementById('tab-' + tab); if (!btn) continue;
+    // recibos de sueldo y vacaciones son de Oficina: en modo local no se cargan
+    const ver = tab === 'recibos' ? puedeVerRecibos() : (tab === 'vacaciones' ? (!MODO_LOCAL && perm(f) !== 'o') : perm(f) !== 'o');
+    btn.style.display = ver ? '' : 'none';
+    if (ver && !primera) primera = tab;
+    if (!ver && btn.classList.contains('active')) activaOculta = true;
   }
-  tabV.style.display = '';
-  if (!puedeVerRecibos()) {
-    tabR.style.display = 'none';
-    // Si el tab activo era recibos, saltar a vacaciones
-    if (tabR.classList.contains('active')) switchTab('vacaciones');
-  } else {
-    tabR.style.display = '';
-  }
+  if (activaOculta && primera) switchTab(primera);
 }
 
 // Base SharePoint Web — para abrir PDFs en el navegador.
@@ -1026,7 +1178,7 @@ async function doLogin() {
     if (error) throw error;
     if (!(await resolverModo(email))) {
       await sb.auth.signOut();
-      throw new Error('Este módulo es para Oficina y para las encargadas/cajeras de los locales.');
+      throw new Error('Tu perfil no tiene Documentos. Se habilita desde el Hub → Permisos.');
     }
     session = { email, user: data.user };
     document.getElementById('user-info').textContent = email;
@@ -1057,14 +1209,27 @@ async function detectarAdmin() {
 function puedeControlar(tipo) {
   if (MODO_LOCAL) return false;
   if (tipo === 'recibo' || tipo === 'sac') return !!_sbRec();
-  return esAdmin || esOficinaGenerica;
+  const p = perm('doc.controlar');                     // (13-nov) permiso del Hub
+  if (p === 'o') return false;
+  if (p === 'a') return true;                          // al tocar pide el usuario superior
+  return esAdmin || esOficinaGenerica;                 // 'h' + la regla de la base: cuenta de oficina o admin
+}
+function puedeQuitarControl() { return !MODO_LOCAL && perm('doc.quitar_control') !== 'o'; }
+function puedeObservar() { return !MODO_LOCAL && perm('doc.observar') !== 'o'; }   // botones ⚠ observar / ↩ rechazar
+// (13-nov) trabajando en UN local: solo los movimientos de las cajas de ese local (la base ya filtra a las cuentas de
+// local; esto cubre a quien tenga varios locales y eligió uno arriba)
+function _enMiLocal(cuentaId) {
+  if (!MODO_LOCAL) return true;
+  const c = _cuentas.find(x => x.id === cuentaId);
+  return !c || !c.local || String(c.local).toLowerCase() === MODO_LOCAL;
 }
 
 // ── Tilde de control: lo pone la cuenta de la oficina o un admin (recibos: con el permiso de Marisa) — ver
-//    puedeControlar(); SOLO el admin lo puede sacar ──
+//    puedeControlar(); lo saca quien tiene "Sacar un control" (puedeQuitarControl) ──
 // (13-oct, JP) el contador de la pestaña = cuántos faltan controlar (vacío si no falta ninguno)
+// (13-nov) en modo local cuenta lo observado, solo si el perfil puede ver lo observado (doc.observados)
 function _cntTab(id, lista) {
-  const n = MODO_LOCAL ? (lista || []).filter(x => x.observacion_control).length : (lista || []).filter(x => !x.controlado).length;
+  const n = MODO_LOCAL ? (puedeVer('doc.observados') ? (lista || []).filter(x => x.observacion_control).length : 0) : (lista || []).filter(x => !x.controlado).length;
   const el = document.getElementById(id); if (!el) return;
   el.textContent = n ? String(n) : '';
   el.title = n ? (MODO_LOCAL ? `${n} observado(s) por Oficina: hay que corregirlos` : `${n} sin controlar`) : '';
@@ -1074,6 +1239,7 @@ function _cntTab(id, lista) {
 // febrero 2027 firmadas en octubre, invisibles con el año 2026 elegido. Si algo pendiente queda afuera, la línea de
 // totales lo avisa y un click limpia los filtros y va al año donde está.
 function _avisoFuera(pre, todos, visibles, fechaDe) {
+  if (MODO_LOCAL && !puedeVer('doc.observados')) return '';
   const vis = new Set(visibles);
   const fuera = (todos || []).filter(x => !vis.has(x) && (MODO_LOCAL ? !!x.observacion_control : !x.controlado));
   if (!fuera.length) return '';
@@ -1123,8 +1289,8 @@ function chipControl(tipo, id, controlado, por, at) {
   }
   if (controlado) {
     const info = `Controlado por ${por || '?'} el ${at ? new Date(at).toLocaleDateString('es-AR') : '?'}`;
-    if (esAdmin) {
-      return `<span class="ctl ok" style="cursor:pointer;" title="${escHtml(info)} — click para QUITAR (solo admin)"
+    if (puedeQuitarControl()) {   // (13-nov) permiso del Hub "Sacar un control" (hoy, administradores)
+      return `<span class="ctl ok" style="cursor:pointer;" title="${escHtml(info)} — click para QUITAR el control"
         onclick="event.stopPropagation();marcarControl('${tipo}', ${id}, false)">${ok}</span>`;
     }
     return `<span class="ctl ok" title="${escHtml(info)}">${ok}</span>`;
@@ -1134,12 +1300,20 @@ function chipControl(tipo, id, controlado, por, at) {
 }
 
 async function marcarControl(tipo, id, valor) {
-  // (12-nov) recibos de sueldo y SAC: con la sesión de quien autorizó (la base lo exige)
-  const cli = (tipo === 'recibo' || tipo === 'sac') ? _sbRec() : sb;
-  if (!cli) { toast('🔒 Primero pedí permiso para los recibos de sueldo', 'error'); return; }
-  if (!puedeControlar(tipo)) { toast('Los controles se hacen desde la cuenta de la oficina', 'error'); return; }
+  const esRecibo = tipo === 'recibo' || tipo === 'sac';
+  if (valor ? !puedeControlar(tipo) : !puedeQuitarControl()) {
+    toast(valor ? 'Los controles se hacen desde la cuenta de la oficina' : 'No tenés permiso para sacar controles', 'error'); return;
+  }
   if (!valor && !confirm('¿Quitar el control de este documento?')) return;
-  if (valor && !confirm('¿Marcar como controlado?\n\nEl tilde queda fijo: solo el administrador puede sacarlo.')) return;
+  if (valor && !confirm('¿Marcar como controlado?\n\nEl tilde queda fijo: solo quien tiene permiso para sacar controles (hoy, un administrador) lo puede sacar.')) return;
+  let cli;
+  if (esRecibo) {
+    cli = _sbRec();   // (12-nov) recibos de sueldo y SAC: con la sesión que abrió el candado (la base lo exige)
+    if (!cli) { toast('🔒 Primero pedí permiso para los recibos de sueldo', 'error'); return; }
+  } else {
+    cli = await _cliPara(valor ? 'doc.controlar' : 'doc.quitar_control');   // (13-nov) 'a' → usuario superior
+    if (!cli) return;
+  }
   try {
     const { error } = await cli.rpc('doc_marcar_control', { p_tipo: tipo, p_id: id, p_valor: valor });
     if (error) throw error;
@@ -1150,6 +1324,11 @@ async function marcarControl(tipo, id, valor) {
 
 async function doLogout() {
   if (_recAut) await recBloquear(true);   // (12-nov) cerrar también la sesión de quien autorizó recibos
+  for (const a of Object.values(_autDoc)) {   // (13-nov) y las de los permisos pedidos
+    if (a.timer) clearTimeout(a.timer);
+    if (a.cli) { try { await a.cli.auth.signOut({ scope: 'local' }); } catch (_) {} }
+  }
+  _autDoc = {};
   await sb.auth.signOut();
   location.reload();
 }
@@ -1366,12 +1545,16 @@ function renderFacturas() { renderRespaldo('fac'); }
 function renderDepositos() { renderRespaldo('dep'); }
 function renderRespaldo(pre) {
   const esDep = pre === 'dep';
+  // (13-nov) permiso del Hub de la pestaña: 'a' sin autorizar → candado
+  if (_candadoTab(esDep ? 'doc.depositos' : 'doc.facturas', esDep ? 'depositos' : 'facturas', pre, esDep ? 'cnt-depositos' : 'cnt-facturas')) return;
   const anio = document.getElementById(pre + '-anio').value;
   const cuentaId = document.getElementById(pre + '-cuenta').value;
   const estado = document.getElementById(pre + '-estado').value;
   const etiqueta = esDep ? 'depósitos' : 'facturas';
+  const verObs = !MODO_LOCAL || puedeVer('doc.observados');   // (13-nov) en el local, lo observado se ve con ese permiso
 
-  let filtrados = (esDep ? _depositos : _facturas).slice();
+  const base = (esDep ? _depositos : _facturas).filter(f => _enMiLocal(f.cuenta_id));
+  let filtrados = base.slice();
   if (anio) filtrados = filtrados.filter(f => f.fecha && f.fecha.startsWith(anio));
   if (cuentaId) filtrados = filtrados.filter(f => f.cuenta_id === parseInt(cuentaId));
   if (estado === 'controlado') filtrados = filtrados.filter(f => f.controlado);
@@ -1383,13 +1566,13 @@ function renderRespaldo(pre) {
     importe: f => Number(f.importe || 0), concepto: f => _categorias[f.categoria_id] || '', descripcion: f => f.descripcion || '',
     cargado: f => f.cargado_por || '', envio: f => f.factura_enviada_at || '', control: f => f.controlado ? 1 : 0 };
   filtrados = docAplicar(pre, filtrados, facGet);
-  if (MODO_LOCAL) filtrados.sort((a, b) => (b.observacion_control ? 1 : 0) - (a.observacion_control ? 1 : 0));   // (v49) lo observado arriba
+  if (MODO_LOCAL && verObs) filtrados.sort((a, b) => (b.observacion_control ? 1 : 0) - (a.observacion_control ? 1 : 0));   // (v49) lo observado arriba
 
-  _cntTab(esDep ? 'cnt-depositos' : 'cnt-facturas', (esDep ? _depositos : _facturas));
+  _cntTab(esDep ? 'cnt-depositos' : 'cnt-facturas', base);
   const ctrl = filtrados.filter(f => f.controlado).length;
   document.getElementById(pre + '-stat').innerHTML =
     `<span title="${filtrados.length} ${etiqueta} · ${ctrl} controlad${esDep ? 'os' : 'as'} · ${filtrados.length - ctrl} pendientes"><strong>${filtrados.length}</strong> · ☑ <strong>${ctrl}</strong> · ⬜ <strong>${filtrados.length - ctrl}</strong></span>`
-    + _avisoFuera(pre, esDep ? _depositos : _facturas, filtrados, f => f.fecha);
+    + _avisoFuera(pre, base, filtrados, f => f.fecha);
 
   if (filtrados.length === 0) {
     document.getElementById(pre + '-body').innerHTML = empty(`No hay ${etiqueta} con esos filtros`);
@@ -1423,7 +1606,9 @@ ${escHtml(f.archivo_nombre || '')}">${_ICO.alerta}</span>`;
     }
     const tieneArchivo = !!f.factura_path && !/borrado/i.test(f.archivo_carpeta || '');  // (26-oct) link muerto = sin link
     const obs = MODO_LOCAL
-      ? (f.observacion_control ? `<span class="ctl ambar" title="${escHtml(f.observacion_control)}">${_ICO.alerta}</span>` : '')
+      ? ((verObs && f.observacion_control) ? `<span class="ctl ambar" title="${escHtml(f.observacion_control)}">${_ICO.alerta}</span>` : '')
+      : !puedeObservar()   // (13-nov) sin "Observar o rechazar": solo se ve si está observado
+      ? (f.observacion_control ? `<span class="ctl ambar" title="Observada por ${escHtml(f.observacion_control_por || '')}: ${escHtml(f.observacion_control)}">${_ICO.alerta}</span>` : '')
       : f.observacion_control
       ? `<span class="ctl ambar" title="Observada por ${escHtml(f.observacion_control_por || '')}: ${escHtml(f.observacion_control)}">${_ICO.alerta}</span><span class="ctl rechazo" title="Levantar la observación" onclick="event.stopPropagation();docObservarMov(${f.id}, true)">${_ICO.ok}</span>`
       : `<span class="ctl rechazo" title="Observar: algo está mal (importe, concepto o el archivo adjunto) — le llega el aviso al local para corregirlo" onclick="event.stopPropagation();docObservarMov(${f.id}, false)">${_ICO.alerta}</span>`;
@@ -1431,12 +1616,12 @@ ${escHtml(f.archivo_nombre || '')}">${_ICO.alerta}</span>`;
     const concepto = String(_categorias[f.categoria_id] || '');
     const desc = String(f.descripcion || '');
     const quien = String(f.cargado_por || '').split('@')[0];
-    return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}${f.observacion_control ? ' obs' : ''}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
+    return `<tr class="${tieneArchivo ? 'clickable' : 'dim'}${(verObs && f.observacion_control) ? ' obs' : ''}" ${tieneArchivo ? `onclick="window.open('${escHtml(f.factura_path)}', '_blank')"` : ''}>
       <td>${fmtFecha(f.fecha)}</td>
       <td>${escHtml(cuenta)}</td>
       <td style="color:${f.importe < 0 ? 'var(--red)' : 'var(--green)'};white-space:nowrap">${fmtMoneda(f.importe)}</td>
       <td class="desc-corta" style="max-width:150px" title="${escHtml(concepto)}">${escHtml(concepto)}</td>
-      <td class="desc-corta" title="${escHtml(desc)}">${escHtml(desc)}${MODO_LOCAL && f.observacion_control ? `<div class="obs-txt">⚠ ${escHtml(f.observacion_control)}${f.observacion_control_por ? ' — ' + escHtml(String(f.observacion_control_por).split('@')[0]) : ''}</div>` : ''}</td>
+      <td class="desc-corta" title="${escHtml(desc)}">${escHtml(desc)}${MODO_LOCAL && verObs && f.observacion_control ? `<div class="obs-txt">⚠ ${escHtml(f.observacion_control)}${f.observacion_control_por ? ' — ' + escHtml(String(f.observacion_control_por).split('@')[0]) : ''}</div>` : ''}</td>
       <td title="${escHtml(f.cargado_por || '')}">${escHtml(quien)}</td>
       <td style="text-align:center">${tieneArchivo ? `<a href="${escHtml(f.factura_path)}" target="_blank" class="doc-link" title="${esDep ? 'Abrir el comprobante' : 'Abrir la factura'}" onclick="event.stopPropagation()">${_ICO.clip}</a>` : `<span title="${/borrado/i.test(f.archivo_carpeta || '') ? 'El archivo ya no está en el OneDrive donde se guardó' : 'Sin archivo (rechazado o purgado por el circuito viejo)'}">—</span>`}</td>
       <td style="text-align:center">${enviada}</td>
@@ -1538,6 +1723,7 @@ function renderRecibos() {
 // Render: Vacaciones
 // ═══════════════════════════════════════════════════════════════════════
 function renderVacaciones() {
+  if (_candadoTab('doc.vacaciones', 'vacaciones', 'vac', 'cnt-vacaciones')) return;   // (13-nov) permiso del Hub
   const anio = document.getElementById('vac-anio').value;
   const empId = document.getElementById('vac-empleado').value;
   const estado = document.getElementById('vac-estado').value;
@@ -1575,7 +1761,7 @@ function renderVacaciones() {
     const firmado = !!v.documento_firmado_at;
     // (13-oct, JP) estado y tipo solo como ícono; el significado aparece al pasar el mouse
     let chip;
-    if (firmado) chip = `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span><span class="ctl rechazo" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('vacaciones', ${v.id})">${_ICO.deshacer}</span>`;
+    if (firmado) chip = `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span>${!puedeObservar() ? '' : `<span class="ctl rechazo" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('vacaciones', ${v.id})">${_ICO.deshacer}</span>`}`;
     else if (v.estado === 'rechazada') chip = `<span class="ctl rojo" title="Pedido de vacaciones rechazado (no es la firma)">${_ICO.cruz}</span>`;
     else if (v.estado === 'aprobada')  chip = v.firma_rechazada_at
       ? `<span class="ctl rojo" title="Firma rechazada el ${fmtFecha(v.firma_rechazada_at)} — el PDF viejo se borró del OneDrive y del archivero. Cuando llegue el escaneo corregido se toma solo, aunque se llame igual.">${_ICO.deshacer}</span>`
@@ -1619,11 +1805,13 @@ function renderVacaciones() {
 // Render: Tesorería
 // ═══════════════════════════════════════════════════════════════════════
 function renderTesoreria() {
+  if (_candadoTab('doc.recibos_tes', 'tesoreria', 'tes', 'cnt-tesoreria')) return;   // (13-nov) permiso del Hub
   const anio = document.getElementById('tes-anio').value;
   const cuentaId = document.getElementById('tes-cuenta').value;
   const estado = document.getElementById('tes-estado').value;
 
-  let filtrados = _tesoreria.slice();
+  const base = _tesoreria.filter(t => _enMiLocal(t.cuenta_id));   // (13-nov) trabajando en un local: solo ese
+  let filtrados = base.slice();
   if (anio) filtrados = filtrados.filter(t => t.fecha && t.fecha.startsWith(anio));
   if (cuentaId) filtrados = filtrados.filter(t => t.cuenta_id === parseInt(cuentaId));
   if (estado === 'firmado') filtrados = filtrados.filter(t => !!t.firmado_at);
@@ -1637,11 +1825,11 @@ function renderTesoreria() {
     estado: t => t.firmado_at ? 1 : 0, firma: t => t.firmado_at || '', control: t => t.controlado ? 1 : 0 };
   filtrados = docAplicar('tes', filtrados, tesGet);
 
-  _cntTab('cnt-tesoreria', _tesoreria);
+  _cntTab('cnt-tesoreria', base);
   const firmados = filtrados.filter(t => t.firmado_at).length;
   document.getElementById('tes-stat').innerHTML =
     `<span title="${filtrados.length} movimientos · ${firmados} firmados · ${filtrados.length - firmados} pendientes de firma"><strong>${filtrados.length}</strong> · ✅ <strong>${firmados}</strong> · ⏳ <strong>${filtrados.length - firmados}</strong></span>`
-    + _avisoFuera('tes', _tesoreria, filtrados, t => t.fecha);
+    + _avisoFuera('tes', base, filtrados, t => t.fecha);
 
   if (filtrados.length === 0) {
     document.getElementById('tes-body').innerHTML = empty('No hay movimientos con esos filtros');
@@ -1655,7 +1843,7 @@ function renderTesoreria() {
     const firmado = !!t.firmado_at;
     // (13-oct, JP) estado solo ícono con texto en hover
     const chip = firmado
-      ? `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span>${MODO_LOCAL ? '' : `<span class="ctl rechazo" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">${_ICO.deshacer}</span>`}`
+      ? `<span class="ctl ok" title="Firmado y guardado — click en la fila para abrir el PDF">${_ICO.ok}</span>${!puedeObservar() ? '' : `<span class="ctl rechazo" title="Rechazar esta firma y pedir que la rehagan" onclick="event.stopPropagation();docRechazarFirma('tesoreria', ${t.id})">${_ICO.deshacer}</span>`}`
       : (t.firma_rechazada_at
           ? `<span class="ctl rojo" title="Firma rechazada el ${fmtFecha(t.firma_rechazada_at)} — el PDF viejo se borró del OneDrive y del archivero. Cuando llegue el escaneo corregido se toma solo, aunque se llame igual.">${_ICO.deshacer}</span>`
           : `<span class="ctl ambar" title="Sin firma: todavía no llegó el recibo firmado">${_ICO.reloj}</span>`);
@@ -1706,11 +1894,13 @@ function renderTesoreria() {
 async function docRechazarRespaldo(id, motivoDado) {
   const motivo = motivoDado || prompt('¿Por qué se rechaza el archivo?\n(ej: "la foto no es la factura", "está ilegible")\nSe borra del OneDrive y el local tiene que volver a adjuntarlo.');
   if (!motivo) return;
-  let { data, error } = await sb.rpc('doc_rechazar_respaldo', { p_id: id, p_motivo: motivo, p_confirmar_movido: false });
+  const cli = await _cliPara('doc.observar');   // (13-nov) permiso del Hub "Observar o rechazar"
+  if (!cli) { toast('No tenés permiso para rechazar archivos', 'error'); return; }
+  let { data, error } = await cli.rpc('doc_rechazar_respaldo', { p_id: id, p_motivo: motivo, p_confirmar_movido: false });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   if (data && data.necesita_confirmacion) {
     if (!confirm(`⚠ ${data.msg}\n\nArchivo: ${data.nombre || ''}\n\n¿Borrarlo IGUAL y pedir uno nuevo al local?`)) return;
-    ({ data, error } = await sb.rpc('doc_rechazar_respaldo', { p_id: id, p_motivo: motivo, p_confirmar_movido: true }));
+    ({ data, error } = await cli.rpc('doc_rechazar_respaldo', { p_id: id, p_motivo: motivo, p_confirmar_movido: true }));
     if (error) { toast('Error: ' + error.message, 'error'); return; }
   }
   toast('🗑 Archivo rechazado — se borra del OneDrive en unos minutos y se avisó a ' + ((data && data.local) || 'el local'));
@@ -1726,7 +1916,9 @@ async function docObservarMov(id, levantar) {
     if (motivo === null) return;
     if (!motivo.trim()) { toast('Escribí el motivo', 'error'); return; }
   }
-  const { data, error } = await sb.rpc('doc_observar_mov', { p_id: id, p_motivo: motivo });
+  const cli = await _cliPara('doc.observar');   // (13-nov) permiso del Hub "Observar o rechazar"
+  if (!cli) { toast('No tenés permiso para observar', 'error'); return; }
+  const { data, error } = await cli.rpc('doc_observar_mov', { p_id: id, p_motivo: motivo });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   toast(levantar ? '✓ Observación levantada' : '⚠ Observado — se avisó al local para que lo corrija');
   // (13-oct, JP) si el problema es el archivo (en blanco, foto equivocada), ofrecer borrarlo también
@@ -1754,8 +1946,10 @@ async function docRechazarFirma(tipo, id) {
   if (motivo === null) return;
   if (!confirm('El documento vuelve a "Sin firma" y se le avisa al local. ¿Confirmás?')) return;
   // (12-nov) recibos de sueldo y SAC: con la sesión de quien autorizó (la base lo exige)
-  const cli = (tipo === 'recibo' || tipo === 'sac') ? _sbRec() : sb;
-  if (!cli) { toast('🔒 Primero pedí permiso para los recibos de sueldo', 'error'); return; }
+  // (13-nov) el resto: permiso del Hub "Observar o rechazar" ('a' → usuario superior)
+  const esRecibo = tipo === 'recibo' || tipo === 'sac';
+  const cli = esRecibo ? _sbRec() : await _cliPara('doc.observar');
+  if (!cli) { toast(esRecibo ? '🔒 Primero pedí permiso para los recibos de sueldo' : 'No tenés permiso para rechazar firmas', 'error'); return; }
   const { data, error } = await cli.rpc('doc_rechazar_firma', { p_tipo: tipo, p_id: id, p_motivo: motivo || '' });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   toast('✍ Firma rechazada — se avisó a ' + ((data && data.local) || 'el local') + ' para rehacerla' + ((data && data.borrar_path) ? '. El PDF se borra del OneDrive en unos minutos.' : ''));
@@ -1807,6 +2001,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=32"></script>
+<script src="manual.js?v=33"></script>
 </body>
 </html>
