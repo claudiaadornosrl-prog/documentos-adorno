@@ -97,7 +97,7 @@ function _manualSecciones() {
       pasos: [
         'Funciones de Documentos: ver facturas y tickets, ver depósitos, ver recibos de Tesorería, ver lo observado por la oficina, tildar como controlado, observar o rechazar, sacar un control, recibos de sueldo, vacaciones y ver los otros locales.',
         'Oculta: la pestaña o el botón no aparece. Si tu perfil no tiene ninguna función de Documentos, no podés entrar al módulo.',
-        'Pide permiso: la pestaña se ve con un candado, o el botón aparece pero al tocarlo se abre la ventana de usuario superior. Ahí pone su usuario y clave personal alguien que tenga esa función habilitada (y, si es de un local, que tenga ese local). Queda habilitado 8 horas en esa computadora y no se guarda nada.',
+        'Pide permiso: la pestaña se ve con un candado, o el botón aparece pero al tocarlo se abre la ventana de usuario superior. Ahí pone su usuario y clave PERSONAL alguien que tenga esa función habilitada (y, si es de un local, que tenga ese local); las cuentas de los locales y de la oficina nunca autorizan. Queda habilitado 8 horas en esa computadora y no se guarda nada.',
         'Recibos de sueldo es la excepción: el candado se abre con el usuario personal de Marisa (o de un administrador).',
         'Tildar como controlado, además del permiso, se hace desde la cuenta de la oficina o un administrador: con usuario personal el tilde no aparece.',
         'Locales: cada persona tiene uno o varios. Sin "ver los otros locales", ves solo lo de tu local; si tenés varios, elegís arriba, al lado del título, en cuál estás trabajando.',

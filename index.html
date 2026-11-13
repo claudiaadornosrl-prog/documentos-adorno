@@ -883,13 +883,12 @@ async function pedirPermisoFuncion(f, conCliente) {
       + (local ? ' en ' + (NOMBRE_LOCAL[local] || local) : '') + `. No queda guardado: se cierra solo en ${DOC_PERMISO_HORAS} horas.`,
     clave: 'documentos-autorizar-' + f.replace(/\W/g, '-'),
     validar: async (aux) => {
-      const { data: p, error } = await aux.rpc('hub_puedo', { p_funcion: f });
+      // (13-nov, Infra) hub_autoriza con la sesión de quien autoriza: admin = sí; si no, tiene que ser una PERSONA (con
+      // legajo: las cuentas genéricas nunca autorizan) con hub_puedo(f) = 'h' y, si se pasa, ese local entre los suyos
+      const { data: ok, error } = await aux.rpc('hub_autoriza', { p_funcion: f, p_local: local });
       if (error) return { ok: false, motivo: 'No pude verificar el permiso: ' + error.message };
-      if (p !== 'h') return { ok: false, motivo: 'Ese usuario no tiene habilitado esto.' };
-      if (local) {
-        const { data: ls } = await aux.rpc('hub_mis_locales');
-        if (!(ls || []).map(x => String(x).toLowerCase()).includes(local)) return { ok: false, motivo: `Ese usuario no tiene ${NOMBRE_LOCAL[local] || local} entre sus locales.` };
-      }
+      if (ok !== true) return { ok: false, motivo: 'Ese usuario no puede autorizar esto' + (local ? ` en ${NOMBRE_LOCAL[local] || local}` : '')
+        + '. Tiene que ser el usuario personal de alguien que lo tenga habilitado (no una cuenta del local o de la oficina).' };
       const { data: q } = await aux.rpc('hub_puede_ver', { p_que: f });   // solo para el nombre de quien autoriza
       return { ok: true, nombre: (q && q.nombre) || (q && q.email) || '', email: (q && q.email) || '' };
     },
@@ -2001,6 +2000,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=33"></script>
+<script src="manual.js?v=34"></script>
 </body>
 </html>
