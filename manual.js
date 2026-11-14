@@ -101,6 +101,7 @@ function _manualSecciones() {
         'Recibos de sueldo es la excepción: el candado se abre con el usuario personal de Marisa (o de un administrador).',
         'Tildar como controlado, además del permiso, se hace desde la cuenta de la oficina o un administrador: con usuario personal el tilde no aparece.',
         'Locales: cada persona tiene uno o varios. Sin "ver los otros locales", ves solo lo de tu local; si tenés varios, elegís arriba, al lado del título, en cuál estás trabajando.',
+        '📷 Registra quién: si JP marcó una función con "📷 Registra quién" en el Hub, al usarla se pide quién la está haciendo (por la cara, o tocando tu nombre en la lista); con usuario personal se anota solo. Si cerrás esa ventana, la acción no se hace. En Documentos se registra al tildar o sacar un control, al observar o levantar una observación, al rechazar un archivo y al rechazar una firma. Los tildes y rechazos de recibos de sueldo cuentan como "Ver y controlar recibos de sueldo". No se guarda ninguna foto: JP lo ve en Hub → Permisos → Registro.',
       ],
     },
     {

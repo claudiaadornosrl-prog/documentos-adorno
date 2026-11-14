@@ -715,6 +715,7 @@ window.ADORNO_SSO = (function () {
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 <script src="/hub/seguridad.js?v=1"></script>
+<script src="/hub/caras.js?v=4" defer></script>
 <script>
 // ═══════════════════════════════════════════════════════════════════════
 // Config Supabase
@@ -912,6 +913,45 @@ async function _cliPara(f) {
     return _autDoc[f].cli;
   }
   return null;
+}
+// (14-nov-2026, JP vía Hub) "📷 Registra quién": justo antes de grabar (y después de la autorización, si la hubo) se
+// anota en hub_registros quién lo hace. Si la función no está marcada en el Hub no se muestra nada. Siempre con la
+// sesión de quien usa el módulo (sb), NUNCA la del usuario superior. Con usuario personal se anota solo; con la cuenta
+// de la oficina, ADORNO_CARAS pide la cara (si la llave está prendida) o que la persona toque su nombre.
+// yaQuien = empleado ya identificado en esta misma acción (observar + borrar el archivo): no se le pregunta otra vez.
+// Devuelve null = NO hacer la operación (canceló o no se pudo anotar); si no, { empleado_id } (null si no registra).
+async function _registrarQuien(f, detalle, yaQuien) {
+  const local = MODO_LOCAL || 'oficina';
+  const falla = (m) => { toast('No pude anotar quién lo hace: ' + m, 'error'); return null; };
+  if (yaQuien || !(window.ADORNO_CARAS && ADORNO_CARAS.registrar)) {
+    const { data: c, error } = await sb.rpc('hub_registra_quien', { p_funcion: f });
+    if (error) return falla(error.message);
+    if (!c || !c.registra) return { empleado_id: null };
+    if (!yaQuien) return falla('falta /hub/caras.js, recargá la página');
+    const { error: e2 } = await sb.rpc('hub_registrar', { p_funcion: f, p_local: local, p_empleado_id: yaQuien, p_detalle: detalle });
+    return e2 ? falla(e2.message) : { empleado_id: yaQuien };
+  }
+  const r = await ADORNO_CARAS.registrar({ cli: sb, funcion: f, local, detalle });
+  if (!r.ok) return r.motivo === 'error' ? falla(r.error) : null;   // 'cancel' → no se hace
+  return { empleado_id: r.empleado_id || null };
+}
+// Qué documento es, para el registro (sin sueldos: solo quién, qué y de cuándo)
+function _detalleDoc(tipo, id, accion, extra) {
+  const nom = (eid) => ((_empleados.find(e => e.id === eid) || {}).nombre_completo || '');
+  const d = { accion, tipo, id };
+  if (tipo === 'tesoreria') {
+    const m = [..._facturas, ..._depositos, ..._tesoreria].find(x => x.id === id) || {};
+    const ct = _cuentas.find(c => c.id === m.cuenta_id) || {};
+    Object.assign(d, { mov: 'MOV-' + id, fecha: m.fecha || null, importe: m.importe ?? null, cuenta: ct.nombre || null,
+      descripcion: String(m.descripcion || '').slice(0, 120) || null });
+  } else if (tipo === 'recibo' || tipo === 'sac') {
+    const r = _recibos.find(x => x.id === id && !!x.esSac === (tipo === 'sac')) || {};
+    Object.assign(d, { persona: nom(r.empleado_id) || null, periodo: r.periodo || null });
+  } else if (tipo === 'vacaciones') {
+    const v = _vacaciones.find(x => x.id === id) || {};
+    Object.assign(d, { persona: nom(v.empleado_id) || null, desde: v.fecha_desde || null, hasta: v.fecha_hasta || null });
+  }
+  return Object.assign(d, extra || {});
 }
 function _htmlCandadoFuncion(f) {
   return `<div class="rec-candado">
@@ -1313,6 +1353,9 @@ async function marcarControl(tipo, id, valor) {
     cli = await _cliPara(valor ? 'doc.controlar' : 'doc.quitar_control');   // (13-nov) 'a' → usuario superior
     if (!cli) return;
   }
+  // (14-nov) 📷 Registra quién: tildar un recibo cae en "Ver y controlar recibos"; sacar cualquier control, en "Sacar un control"
+  const fnReg = !valor ? 'doc.quitar_control' : (esRecibo ? 'doc.recibos_sueldo' : 'doc.controlar');
+  if (!(await _registrarQuien(fnReg, _detalleDoc(tipo, id, valor ? 'tildar como controlado' : 'sacar el control')))) return;
   try {
     const { error } = await cli.rpc('doc_marcar_control', { p_tipo: tipo, p_id: id, p_valor: valor });
     if (error) throw error;
@@ -1890,11 +1933,13 @@ function renderTesoreria() {
 // PDF equivocado): push al local para que lo corrija o lo borre y recargue.
 // (7-sep) Rechazar el archivo de una factura/depósito: foto equivocada. Se
 // borra del OneDrive por ID (papelera) y el local vuelve a adjuntar.
-async function docRechazarRespaldo(id, motivoDado) {
+async function docRechazarRespaldo(id, motivoDado, yaQuien) {
   const motivo = motivoDado || prompt('¿Por qué se rechaza el archivo?\n(ej: "la foto no es la factura", "está ilegible")\nSe borra del OneDrive y el local tiene que volver a adjuntarlo.');
   if (!motivo) return;
   const cli = await _cliPara('doc.observar');   // (13-nov) permiso del Hub "Observar o rechazar"
   if (!cli) { toast('No tenés permiso para rechazar archivos', 'error'); return; }
+  // (14-nov) 📷 Registra quién (si viene de "Observar", ya se sabe quién: no se pregunta de nuevo)
+  if (!(await _registrarQuien('doc.observar', _detalleDoc('tesoreria', id, 'rechazar el archivo', { motivo: String(motivo).slice(0, 200) }), yaQuien))) return;
   let { data, error } = await cli.rpc('doc_rechazar_respaldo', { p_id: id, p_motivo: motivo, p_confirmar_movido: false });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   if (data && data.necesita_confirmacion) {
@@ -1917,6 +1962,9 @@ async function docObservarMov(id, levantar) {
   }
   const cli = await _cliPara('doc.observar');   // (13-nov) permiso del Hub "Observar o rechazar"
   if (!cli) { toast('No tenés permiso para observar', 'error'); return; }
+  const reg = await _registrarQuien('doc.observar', _detalleDoc('tesoreria', id, levantar ? 'levantar la observación' : 'observar',
+    levantar ? null : { motivo: motivo.slice(0, 200) }));   // (14-nov) 📷 Registra quién
+  if (!reg) return;
   const { data, error } = await cli.rpc('doc_observar_mov', { p_id: id, p_motivo: motivo });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   toast(levantar ? '✓ Observación levantada' : '⚠ Observado — se avisó al local para que lo corrija');
@@ -1924,7 +1972,7 @@ async function docObservarMov(id, levantar) {
   if (!levantar) {
     const mov = [..._facturas, ..._depositos].find(x => x.id === id);
     if (mov && mov.factura_path && confirm('¿El problema es el ARCHIVO adjunto (en blanco, ilegible, de otra cosa)?' + String.fromCharCode(10,10) + 'Aceptar = se borra del OneDrive y el local tiene que volver a adjuntarlo.' + String.fromCharCode(10) + 'Cancelar = el archivo queda, solo se avisa la observación.')) {
-      await docRechazarRespaldo(id, motivo);
+      await docRechazarRespaldo(id, motivo, reg.empleado_id);
       return;
     }
   }
@@ -1949,6 +1997,9 @@ async function docRechazarFirma(tipo, id) {
   const esRecibo = tipo === 'recibo' || tipo === 'sac';
   const cli = esRecibo ? _sbRec() : await _cliPara('doc.observar');
   if (!cli) { toast(esRecibo ? '🔒 Primero pedí permiso para los recibos de sueldo' : 'No tenés permiso para rechazar firmas', 'error'); return; }
+  // (14-nov) 📷 Registra quién: la firma de un recibo cae en "Ver y controlar recibos"; el resto, en "Observar o rechazar"
+  if (!(await _registrarQuien(esRecibo ? 'doc.recibos_sueldo' : 'doc.observar',
+    _detalleDoc(tipo, id, 'rechazar la firma', { motivo: String(motivo || '').slice(0, 200) })))) return;
   const { data, error } = await cli.rpc('doc_rechazar_firma', { p_tipo: tipo, p_id: id, p_motivo: motivo || '' });
   if (error) { toast('Error: ' + error.message, 'error'); return; }
   toast('✍ Firma rechazada — se avisó a ' + ((data && data.local) || 'el local') + ' para rehacerla' + ((data && data.borrar_path) ? '. El PDF se borra del OneDrive en unos minutos.' : ''));
@@ -2000,6 +2051,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=34"></script>
+<script src="manual.js?v=35"></script>
 </body>
 </html>
