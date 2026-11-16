@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v85-ver-como';   // (16-nov) «Ver como» del Hub: /hub/banner.js v7 y acciones trabadas en solo lectura
+const CACHE_VERSION = 'docs-v86-carteles';   // (16-nov) carteles de error comunes: /hub/banner.js v8 (fijos con ✕, en castellano simple)
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
