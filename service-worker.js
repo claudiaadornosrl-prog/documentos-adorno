@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v84-mic-apretado';   // (15-nov) Clodi: mantener apretado el micrófono para hablar
+const CACHE_VERSION = 'docs-v85-ver-como';   // (16-nov) «Ver como» del Hub: /hub/banner.js v7 y acciones trabadas en solo lectura
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',

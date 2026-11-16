@@ -640,7 +640,7 @@ window.ADORNO_SSO = (function () {
       <button class="hbtn ab-fijo" onclick="doLogout()" title="Salir" aria-label="Salir"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span class="lb">Salir</span></button>
     </div>
   </header>
-  <script src="/hub/banner.js?v=6"></script>
+  <script src="/hub/banner.js?v=7"></script>
 
   <main>
     <!-- ─── Recibos ─── -->
@@ -896,7 +896,7 @@ function _aplicarModoLocal() {
 function cambiarLocal(l) {
   if (!_misLocales.includes(l)) return;
   MODO_LOCAL = l;
-  try { localStorage.setItem('docs-local', l); } catch (_) {}
+  if (!window.ADORNO_VERCOMO) { try { localStorage.setItem('docs-local', l); } catch (_) {} }   // (16-nov) «Ver como»: no cambia lo elegido por JP
   cargarTodo();
 }
 // Con 'a': quién autorizó cada función (8 h, solo en memoria). Para las acciones se guarda el cliente de quien
@@ -1067,6 +1067,16 @@ function _recInfoAut() {
 // storageKey propio), código del celular si la cuenta lo tiene, y validar(aux) decide. Devuelve { cli, nombre, email }
 // con la sesión de quien autorizó todavía abierta (la cierra quien llama) o null. data-adorno-superior: para que la
 // traba del equipo (/hub/equipo.js) deje escribir el usuario personal acá.
+// (16-nov-2026, Infra/JP) «Ver como» (Hub v126, /hub/banner.js v7): JP mira el módulo como otra cuenta, SOLO LECTURA
+// (la base contesta como esa cuenta y rechaza cualquier escritura). Las acciones que graban cortan acá con un aviso, antes
+// de pedir quién lo hace; ver las listas y abrir los archivos (links de OneDrive) sigue igual.
+// (16-nov, JP vía Infra: "necesitaría ver que la parte de pedir permiso esté funcionando bien") la ventana de usuario
+// superior SÍ se abre (candado de Recibos y "pide permiso"), para ver que aparece; lo trabado es validar la clave.
+function _soloMirar() {
+  if (!window.ADORNO_VERCOMO) return false;
+  toast('👁 «Ver como» es solo para mirar: no se tilda, observa ni rechaza nada', 'error');
+  return true;
+}
 async function pedirSuperior({ titulo, texto, validar, clave: storageKey }) {
   const caja = (window.ADORNO_MFA && ADORNO_MFA.modal) ? ADORNO_MFA.modal('') : null;
   const o = caja || document.body.appendChild(Object.assign(document.createElement('div'), { className: 'amfa-fondo', style: 'position:fixed;inset:0;z-index:99999;background:rgba(20,18,16,.55);display:flex;align-items:center;justify-content:center;padding:16px;' }));
@@ -1076,6 +1086,7 @@ async function pedirSuperior({ titulo, texto, validar, clave: storageKey }) {
   inner.innerHTML = `
     <h3 style="margin:0 0 8px;font-size:17px;font-weight:600;">${escHtml(titulo)}</h3>
     <p style="font-size:13px;line-height:1.45;color:var(--muted);margin:0 0 12px;">${escHtml(texto)}</p>
+    ${window.ADORNO_VERCOMO ? `<p class="vc-aviso" style="font-size:12px;line-height:1.4;background:#F3E9D6;border:1px solid #C99A4B;color:#1C1612;border-radius:16px;padding:8px 14px;margin:0 0 12px;">👁 Modo «Ver como»: esta es la ventana que le aparece a esta cuenta. Es solo lectura, así que acá no se valida ninguna clave.</p>` : ''}
     <input class="rec-mail" type="email" autocomplete="username" placeholder="Usuario (mail)" style="${est}">
     <input class="rec-clave" type="password" autocomplete="current-password" placeholder="Clave" style="${est}">
     <div class="amfa-error" style="min-height:18px;font-size:12px;color:#b91c1c;margin-bottom:8px;"></div>
@@ -1088,6 +1099,7 @@ async function pedirSuperior({ titulo, texto, validar, clave: storageKey }) {
     inner.querySelector('.amfa-sec').onclick = () => cerrar(null);
     async function probar() {
       if (enCurso) return;
+      if (window.ADORNO_VERCOMO) { err.textContent = '👁 «Ver como» es solo lectura: no se valida la clave ni se autoriza nada.'; return; }
       const email = mail.value.trim().toLowerCase(), pass = claveIn.value;
       if (!email || !pass) { err.textContent = 'Completá usuario y clave.'; return; }
       enCurso = true; btn.disabled = true; err.textContent = '';
@@ -1377,6 +1389,7 @@ function chipControl(tipo, id, controlado, por, at) {
 }
 
 async function marcarControl(tipo, id, valor) {
+  if (_soloMirar()) return;
   const esRecibo = tipo === 'recibo' || tipo === 'sac';
   if (valor ? !puedeControlar(tipo) : !puedeQuitarControl()) {
     toast(valor ? 'Los controles se hacen desde la cuenta de la oficina' : 'No tenés permiso para sacar controles', 'error'); return;
@@ -1403,6 +1416,7 @@ async function marcarControl(tipo, id, valor) {
 }
 
 async function doLogout() {
+  if (window.ADORNO_VERCOMO) { ADORNO_VERCOMO.salir(); return; }   // (16-nov) «Ver como»: Salir vuelve al Hub, sin cerrar la sesión de JP
   if (_recAut) await recBloquear(true);   // (12-nov) cerrar también la sesión de quien autorizó recibos
   for (const a of Object.values(_autDoc)) {   // (13-nov) y las de los permisos pedidos
     if (a.timer) clearTimeout(a.timer);
@@ -1972,6 +1986,7 @@ function renderTesoreria() {
 // (7-sep) Rechazar el archivo de una factura/depósito: foto equivocada. Se
 // borra del OneDrive por ID (papelera) y el local vuelve a adjuntar.
 async function docRechazarRespaldo(id, motivoDado, yaQuien) {
+  if (_soloMirar()) return;
   const motivo = motivoDado || prompt('¿Por qué se rechaza el archivo?\n(ej: "la foto no es la factura", "está ilegible")\nSe borra del OneDrive y el local tiene que volver a adjuntarlo.');
   if (!motivo) return;
   const cli = await _cliPara('doc.observar');   // (13-nov) permiso del Hub "Observar o rechazar"
@@ -1990,6 +2005,7 @@ async function docRechazarRespaldo(id, motivoDado, yaQuien) {
 }
 
 async function docObservarMov(id, levantar) {
+  if (_soloMirar()) return;
   let motivo = '';
   if (levantar) {
     if (!confirm('¿Levantar la observación de este movimiento?')) return;
@@ -2027,6 +2043,7 @@ function chipSinFirma(rechazadaAt) {
 }
 
 async function docRechazarFirma(tipo, id) {
+  if (_soloMirar()) return;
   const motivo = prompt('¿Por qué se rechaza esta firma?\n(el motivo le llega a la encargada del local para rehacerla)');
   if (motivo === null) return;
   if (!confirm('El documento vuelve a "Sin firma" y se le avisa al local. ¿Confirmás?')) return;
@@ -2089,6 +2106,6 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=36"></script>
+<script src="manual.js?v=37"></script>
 </body>
 </html>
