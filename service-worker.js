@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v86-carteles';   // (16-nov) carteles de error comunes: /hub/banner.js v8 (fijos con ✕, en castellano simple)
+const CACHE_VERSION = 'docs-v87-camara';   // (16-nov) cámara y fichador: /hub/banner.js v10 + /hub/caras.js v10 (si el fichador tiene la cámara, se la pide y se la devuelve)
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
