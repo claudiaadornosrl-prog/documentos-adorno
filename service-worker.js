@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v83-registra-quien';   // (14-nov) 📷 Registra quién con /hub/caras.js v4
+const CACHE_VERSION = 'docs-v84-mic-apretado';   // (15-nov) Clodi: mantener apretado el micrófono para hablar
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
