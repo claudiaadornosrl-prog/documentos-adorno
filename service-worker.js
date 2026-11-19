@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v88-clodi-iphone';   // (18-nov) Clodi nueva (bloque común reinyectado): en iPhone/iPad el micrófono abre el teclado para dictar
+const CACHE_VERSION = 'docs-v89-camara-permiso';   // (18-nov) Clodi nueva (bloque común reinyectado): en iPhone/iPad el micrófono abre el teclado para dictar
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
