@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v91-clodi-ir2';   // (19-nov) Clodi «Ir a» 2ª vuelta (bloque común reinyectado): comprueba que la pestaña quedó abierta y reintenta
+const CACHE_VERSION = 'docs-v92-embudito';   // (19-nov) pieza de tablas abc48a63: el embudito queda siempre al costado del título
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
