@@ -3,12 +3,13 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v89-camara-permiso';   // (18-nov) Clodi nueva (bloque común reinyectado): en iPhone/iPad el micrófono abre el teclado para dictar
+const CACHE_VERSION = 'docs-v90-tablas';   // (19-nov) tablas tipo Excel (pieza común adorno-tablas.js) + Clodi «Ir a <módulo> →» / «llevame a…»
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
   './index.html',
   './manual.js',
+  './adorno-tablas.js',
   './manifest.webmanifest',
 ];
 
