@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v90-tablas';   // (19-nov) tablas tipo Excel (pieza común adorno-tablas.js) + Clodi «Ir a <módulo> →» / «llevame a…»
+const CACHE_VERSION = 'docs-v91-clodi-ir2';   // (19-nov) Clodi «Ir a» 2ª vuelta (bloque común reinyectado): comprueba que la pestaña quedó abierta y reintenta
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
