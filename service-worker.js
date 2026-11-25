@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v93-cambiar-pdf';   // (25-nov) botón «Cambiar PDF» en Facturas y Depósitos + manual v43 (íconos de Etapa y qué hacer con el ⚠ rojo)
+const CACHE_VERSION = 'docs-v94-cache-propia';   // (25-nov) el activate borra solo las cachés docs-* (antes borraba las de todos los módulos del dominio, POS incluido)
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',
@@ -24,7 +24,8 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_VERSION).map(k => caches.delete(k)))
+      // Todos los módulos comparten claudiaadornosrl-prog.github.io (y sus cachés): borrar solo las de Documentos.
+      Promise.all(keys.filter(k => k.startsWith('docs-') && k !== CACHE_VERSION).map(k => caches.delete(k)))
     )
   );
   self.clients.claim();
