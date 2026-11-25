@@ -3,7 +3,7 @@
 // Estrategia: network-first (siempre intentar última versión)
 // ═══════════════════════════════════════════════════════════════════════
 
-const CACHE_VERSION = 'docs-v92-embudito';   // (19-nov) pieza de tablas abc48a63: el embudito queda siempre al costado del título
+const CACHE_VERSION = 'docs-v93-cambiar-pdf';   // (25-nov) botón «Cambiar PDF» en Facturas y Depósitos + manual v43 (íconos de Etapa y qué hacer con el ⚠ rojo)
 const CACHE_ASSETS = [
   'fonts/URWGothic-Book.ttf',
   './',

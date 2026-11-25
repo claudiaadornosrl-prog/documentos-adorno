@@ -680,6 +680,8 @@ window.ADORNO_SSO = (function () {
   .sel-local option { color: #1c1917; }
   .ctl.verde { color: var(--green); } .ctl.violeta { color: #7c3aed; }
   .ctl.rechazo { color: #cbd5e1; cursor: pointer; } .ctl.rechazo:hover { color: var(--red); background: var(--red-bg); }
+  /* (25-nov, JP) «Cambiar PDF» al lado del clip: gris tenue, azul al pasar el mouse */
+  .ctl.cambia { color: #cbd5e1; cursor: pointer; width: 26px; } .ctl.cambia:hover { color: var(--primary); background: var(--gray-light); }
   .doc-link { display: inline-flex; color: var(--primary); padding: 4px; border-radius: 6px; }
   .doc-link:hover { background: var(--primary-bg); }
   .chip {
@@ -1474,6 +1476,7 @@ const _ICO = {
   alerta: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
   tacho: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
   clip: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+  subir: '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>',
 };
 // (13-oct, JP) solo el ícono; el significado aparece al pasar el mouse
 function chipControl(tipo, id, controlado, por, at) {
@@ -1690,7 +1693,7 @@ let _depositos = [];
 // respaldos que se eligen al cargar en Tesorería: recibo / factura / depósito).
 async function cargarFacturas() {
   const { data, error } = await sb.from('tesoreria_movimientos')
-    .select('id, fecha, importe, descripcion, categoria_id, cuenta_id, cargado_por, respaldo_tipo, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at, observacion_control, observacion_control_por, observacion_control_at, archivo_item_id, archivo_carpeta, archivo_nombre, respaldo_rechazado_at, respaldo_rechazo_motivo')
+    .select('id, fecha, importe, descripcion, categoria_id, cuenta_id, cargado_por, respaldo_tipo, factura_path, factura_enviada_at, controlado, controlado_por, controlado_at, observacion_control, observacion_control_por, observacion_control_at, archivo_item_id, archivo_carpeta, archivo_nombre, respaldo_rechazado_at, respaldo_rechazo_motivo, reemplazo:extra->reemplazo_pendiente')
     .in('respaldo_tipo', ['factura','deposito'])
     .gte('fecha', RECIBOS_DESDE)  // solo sistema nuevo (desde mayo 2026)
     .order('fecha', { ascending: false });
@@ -1795,7 +1798,11 @@ function renderRespaldo(pre) {
     // (7-sep) etapa del archivo en OneDrive (por ID, sobrevive renombres/mudanzas)
     // (13-oct, JP) etapa solo como ícono; el detalle aparece al pasar el mouse
     let enviada;
-    if (f.respaldo_rechazado_at && !f.factura_path) {
+    if (f.reemplazo) {
+      // (25-nov, JP) «Cambiar PDF»: el nuevo está en el bucket y el VPS se lo pone al mismo archivo del OneDrive (cada 10 min)
+      const r = f.reemplazo;
+      enviada = `<span class="ctl azul" title="${escHtml('PDF nuevo esperando: lo subió ' + String(r.por || '').split('@')[0] + (r.at ? ' el ' + new Date(r.at).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '') + (r.motivo ? ' («' + r.motivo + '»)' : '') + '.\nEn unos minutos reemplaza al archivo del OneDrive (mismo nombre y carpeta).')}">${_ICO.reloj}</span>`;
+    } else if (f.respaldo_rechazado_at && !f.factura_path) {
       enviada = `<span class="ctl rojo" title="Archivo rechazado, esperando uno nuevo. Motivo: ${escHtml(f.respaldo_rechazo_motivo || '')}">${_ICO.deshacer}</span>`;
     } else if (f.archivo_item_id && /borrado/i.test(f.archivo_carpeta || '')) {
       // (26-oct, JP) el rechequeo del VPS no encontró más el archivo por ID: administración lo recreó con otro nombre
@@ -1833,7 +1840,7 @@ ${escHtml(f.archivo_nombre || '')}">${_ICO.alerta}</span>`;
       <td class="desc-corta" style="max-width:150px" title="${escHtml(concepto)}">${escHtml(concepto)}</td>
       <td class="desc-corta" title="${escHtml(desc)}">${escHtml(desc)}${MODO_LOCAL && verObs && f.observacion_control ? `<div class="obs-txt">⚠ ${escHtml(f.observacion_control)}${f.observacion_control_por ? ' — ' + escHtml(String(f.observacion_control_por).split('@')[0]) : ''}</div>` : ''}</td>
       <td title="${escHtml(f.cargado_por || '')}">${escHtml(quien)}</td>
-      <td style="text-align:center">${tieneArchivo ? `<a href="${escHtml(f.factura_path)}" target="_blank" class="doc-link" title="${esDep ? 'Abrir el comprobante' : 'Abrir la factura'}" onclick="event.stopPropagation()">${_ICO.clip}</a>` : `<span title="${/borrado/i.test(f.archivo_carpeta || '') ? 'El archivo ya no está en el OneDrive donde se guardó' : 'Sin archivo (rechazado o purgado por el circuito viejo)'}">—</span>`}</td>
+      <td style="text-align:center;white-space:nowrap">${tieneArchivo ? `<a href="${escHtml(f.factura_path)}" target="_blank" class="doc-link" title="${esDep ? 'Abrir el comprobante' : 'Abrir la factura'}" onclick="event.stopPropagation()">${_ICO.clip}</a>` : `<span title="${/borrado/i.test(f.archivo_carpeta || '') ? 'El archivo ya no está en el OneDrive donde se guardó' : 'Sin archivo (rechazado o purgado por el circuito viejo)'}">—</span>`}${puedeObservar() && !f.reemplazo ? `<span class="ctl cambia" title="Cambiar el PDF (por ejemplo, ahora está firmado): subís el nuevo y reemplaza al del OneDrive" onclick="event.stopPropagation();docCambiarPdf(${f.id})">${_ICO.subir}</span>` : ''}</td>
       <td style="text-align:center">${enviada}</td>
       <td style="white-space:nowrap;">${chipControl('tesoreria', f.id, f.controlado, f.controlado_por, f.controlado_at)}${obs}</td>
     </tr>`;
@@ -2120,6 +2127,58 @@ async function docRechazarRespaldo(id, motivoDado, yaQuien) {
   cargarTodo();
 }
 
+// (25-nov-2026, JP: «a veces suben uno firmado que al principio no tenía firma») «Cambiar PDF» de una factura o un
+// depósito, con el permiso del Hub «Observar o rechazar». El archivo va al bucket privado (reemplazos/<mov>/…) y
+// doc_cambiar_respaldo decide: si el archivo sigue en el OneDrive, el VPS le pone el contenido nuevo AL MISMO archivo
+// (mismo nombre y carpeta; el anterior queda como versión vieja) en ≤10 min; si no está (rechazado, ⚠ borrado), entra
+// como nuevo a 1 - SIN CONTABILIZAR. En los dos casos se saca el tilde de control: hay que volver a controlarlo.
+function _elegirArchivo(accept) {
+  return new Promise(res => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = accept; inp.style.display = 'none';
+    inp.addEventListener('change', () => { res(inp.files && inp.files[0] || null); inp.remove(); });
+    inp.addEventListener('cancel', () => { res(null); inp.remove(); });
+    document.body.appendChild(inp);
+    inp.click();
+  });
+}
+async function docCambiarPdf(id) {
+  if (_soloMirar()) return;
+  const mov = [..._facturas, ..._depositos].find(x => x.id === id);
+  if (!mov) return;
+  if (mov.reemplazo) { toast('Ya hay un PDF nuevo esperando para este movimiento: en unos minutos queda puesto', 'error'); return; }
+  const file = await _elegirArchivo('application/pdf,image/*');
+  if (!file) return;
+  if (file.size > 15 * 1024 * 1024) { toast('El archivo es muy grande (máximo 15 MB)', 'error'); return; }
+  const esDep = mov.respaldo_tipo === 'deposito';
+  const vivo = mov.archivo_item_id && !/borrado/i.test(mov.archivo_carpeta || '');
+  const NL = String.fromCharCode(10);
+  const donde = vivo
+    ? 'Reemplaza al archivo que está en el OneDrive (' + (mov.archivo_carpeta || '') + ' / ' + (mov.archivo_nombre || '') + '): queda con el mismo nombre y en la misma carpeta, y el anterior se guarda como versión vieja.'
+    : 'Como no hay archivo en el OneDrive, entra como nuevo a CONTABILIZAR / 1 - SIN CONTABILIZAR.';
+  const motivo = prompt('Cambiar el ' + (esDep ? 'comprobante' : 'PDF de la factura') + ' de ' + fmtFecha(mov.fecha) + ' · ' + fmtMoneda(mov.importe) + ' · ' + String(mov.descripcion || '').slice(0, 50) + NL + NL
+    + 'Archivo nuevo: ' + file.name + NL + donde + NL + 'Se saca el tilde de control: hay que volver a controlarlo.' + NL + NL
+    + '¿Por qué se cambia? (ej: "ahora está firmado")');
+  if (motivo === null) return;
+  if (!motivo.trim()) { toast('Escribí el motivo', 'error'); return; }
+  const cli = await _cliPara('doc.observar');   // mismo permiso del Hub que observar o rechazar
+  if (!cli) { toast('No tenés permiso para cambiar el PDF', 'error'); return; }
+  if (!(await _registrarQuien('doc.observar', _detalleDoc('tesoreria', id, 'cambiar el PDF',
+    { motivo: motivo.trim().slice(0, 200), archivo: file.name.slice(0, 120) })))) return;   // 📷 Registra quién
+  let ext = ((/\.([a-z0-9]{1,5})$/i.exec(file.name) || [])[1] || '').toLowerCase();
+  if (!ext) ext = file.type === 'application/pdf' ? 'pdf' : 'jpg';
+  const objeto = `reemplazos/${id}/${Date.now()}.${ext}`;
+  toast('Subiendo el archivo nuevo…');
+  const { error: eUp } = await cli.storage.from('tesoreria-facturas').upload(objeto, file, { contentType: file.type || undefined, upsert: false });
+  if (eUp) { toast('No se pudo subir el archivo: ' + eUp.message, 'error'); return; }
+  const { data, error } = await cli.rpc('doc_cambiar_respaldo', { p_id: id, p_objeto: objeto, p_motivo: motivo.trim() });
+  if (error) { toast('No se pudo cambiar el PDF: ' + error.message, 'error'); return; }
+  toast(data && data.modo === 'reemplazo'
+    ? '✓ Archivo nuevo subido — en unos minutos reemplaza al del OneDrive. Hay que volver a controlarlo.'
+    : '✓ Archivo nuevo subido — en menos de una hora entra a 1 - SIN CONTABILIZAR. Hay que volver a controlarlo.');
+  cargarTodo();
+}
+
 async function docObservarMov(id, levantar) {
   if (_soloMirar()) return;
   let motivo = '';
@@ -2222,7 +2281,7 @@ function switchTab(name) {
   }, true);
 })();
 </script>
-<script src="manual.js?v=42"></script>
+<script src="manual.js?v=43"></script>
 <script src="adorno-tablas.js?v=abc48a63"></script>
 </body>
 </html>
